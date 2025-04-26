@@ -72,6 +72,7 @@ int DisabledGroupsC = 0;
 mutex mtx1, mtxForLog;//для синхронизации проверки режимов
 int8_t syncMode = 0;//переменная для синхронизации, 0 - свободный режим, 1 - ожидание остановки потока бота, 2 - подтверждение остановки потока бота, 3 - отправка расписания
 
+
 //создание логов
 void logMessage(string message, string fileName) {// без .txt
     mtxForLog.lock();
@@ -281,6 +282,7 @@ string cp1251_to_utf8(const char* str) {
     return res;
 }
 
+//анти двойной запуск
 bool isAlreadyRunning() {
     // Уникальное имя мьютекса
     const char* mutexName = "Global\\raspisbot";
@@ -300,3 +302,5 @@ bool isAlreadyRunning() {
 
     return false; // Программа запущена впервые
 }
+
+//чек апдейт

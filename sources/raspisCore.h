@@ -1,6 +1,9 @@
 #pragma once
 //123
 
+const string CurrentVers = "v2.3";
+const string version = CurrentVers + " (23.03.2024) тест до автообновления!";
+
 string FirstUrl = "https://rasp.vksit.ru/spo.pdf";
 string SecondUrl = "https://rasp.vksit.ru/npo.pdf";
 string FirstDownloadFile = "spo.pdf";
@@ -14,6 +17,8 @@ string FourthCommand2 = "magick -density 400 " + SecondDownloadFile + "[0] -back
 
 DWORD SleepTime = 60000;
 bool EnableAd = 1;
+
+bool EnableAutoUpdate = 1;
 
 int cutsOffX = 0, cutsOffY = 0, leftEdge = 0;
 
@@ -940,6 +945,7 @@ void main2() {
     {
         ReadStringFromFile(FirstDownloadFile, LastFileD[0]);
         ReadStringFromFile(SecondDownloadFile, LastFileD[1]);
+        string newVersion;
 
         while (true) {
             if (DownloadFileToMemory(FirstUrl, FileD[0]) && DownloadFileToMemory(SecondUrl, FileD[1])) {
@@ -1060,6 +1066,23 @@ void main2() {
             else {
                 logMessage("Не удалось скачать файл с расписанием", "system", 120);
             }
+            
+
+            if(EnableAutoUpdate)
+            {
+                if (DownloadFileToMemory("https://wyanarba.github.io/rBot/", newVersion) && newVersion.size() < 8) {
+                    if (newVersion != CurrentVers) {
+                        logMessage("Обнова!!! " + CurrentVers + "->" + newVersion, "system");
+                        system("start update.bat");
+                        exit(0);
+                    }
+                }
+                else {
+                    logMessage("Не удалось скачать версию", "system", 121);
+                }
+            }
+                
+
             Sleep(SleepTime);
         }
     }

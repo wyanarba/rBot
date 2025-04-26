@@ -3,8 +3,6 @@
 #include "functions.h"
 #include "raspisCore.h"
 
-const string CurrentVers = "v2.4";
-const string version = CurrentVers + " (23.03.2024) тест до автообновления!";
 
 struct myUser
 {
@@ -63,11 +61,12 @@ vector<int64_t> GroupsForSpam;//буферная группа для рассы�
 int64_t RootTgId = 0;//тг id владельца
 int64_t SecondRootTgId = 6266601544;//мой тг id, для прав чуть по ниже
 string BotKey = "";//ключ бота
-string StartText = "";
+string StartText = "";//приветсвенное сообщение
 bool ModeSend = 0;//режим отправки 0 - v1, 1 - v2
 //DWORD SleepTime = 60000;
 void (*update)();//функция для отправки расписания, (указатель) на неё
 //bool EnableAd = 1;
+//bool EnableAutoUpdate = 1;
 
 string formatG(string str) {
     str = Utf8_to_cp1251(str.c_str());
@@ -177,6 +176,8 @@ bool getConfig(string confName) {
                 SleepTime = stoi(value) * 1000;
             else if (parameter == "EnableAd")
                 EnableAd = value == "1";
+            else if (parameter == "EnableAutoUpdate")
+                EnableAutoUpdate = value == "1";
         }
     }
 
@@ -1673,6 +1674,8 @@ int main() {
                                 bot.getApi().sendDocument(userId, TgBot::InputFile::fromFile("4\\t.txt", "text/plain"));
                             else if (commandParam == "3")
                                 bot.getApi().sendDocument(userId, TgBot::InputFile::fromFile("..\\spamText.txt", "text/plain"));
+                            else if (commandParam == "4")
+                                bot.getApi().sendDocument(userId, TgBot::InputFile::fromFile("..\\updater\\log.txt", "text/plain"));
                             else
                                 bot.getApi().sendMessage(userId, "Добавьте номер файла из /info\nПример: /qq 2", false, 0, NULL);
                         }
@@ -1808,6 +1811,7 @@ int main() {
                                         "\nБуферных групп: " + to_string(GroupsForSpam.size()) +
                                         "\nЗадержка проверки: " + to_string(SleepTime / 1000) +
                                         "\nРеклама: " + (EnableAd ? "Вкл." : "Выкл.") +
+                                        "\nАвто обнова: " + (EnableAutoUpdate ? "Вкл." : "Выкл.") +
                                         "\nГрупп без подписчиков (в последней рассылке): " + to_string(DisabledGroupsC) +
                                         "\nP: " + to_string(p) +
                                         "\nG: " + to_string(g) +
@@ -1821,6 +1825,7 @@ int main() {
 \n1 - файл с системными логами ошибками и тд. system.txt\
 \n2 - файл с преподавателями которые были встречены в расписании когда либо 4/t.txt\
 \n3 - файл с списком слов для фильтрации spamText.txt\
+\n4 - файл с логом автообновления\
 \nвсе эти файлы нужны мне для улучшения бота\
 \n\nу тебя (владельца бота):\
 \n1 - сообщение пользователю от лица бота: (telegram id человека)Текст сообщения\
