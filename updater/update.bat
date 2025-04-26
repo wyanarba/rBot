@@ -1,1 +1,0 @@
-start pys\update.py .venv\Scripts\pythonw.exe
