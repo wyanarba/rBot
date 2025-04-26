@@ -4,7 +4,7 @@
 #include "raspisCore.h"
 
 const string CurrentVers = "v2.4";
-const string version = "2.4 (23.03.2024) тест до автообновления!";
+const string version = CurrentVers + " (23.03.2024) тест до автообновления!";
 
 struct myUser
 {
