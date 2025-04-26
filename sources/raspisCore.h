@@ -275,7 +275,7 @@ void getLocalRaspis(int iteratorQ, int pageNumber, string pdf_path) {
 
     //чтение spamText
     {
-        ifstream ifs("..\\spamText.txt");
+        ifstream ifs("spamText.txt");
         string strForRead;
         while (getline(ifs, strForRead)) {
             spamText.insert(strForRead);
@@ -524,6 +524,10 @@ void getLocalRaspis(int iteratorQ, int pageNumber, string pdf_path) {
 
     //подготовка к разделению
     {
+        Mat overlay;
+        imageCoper2.copyTo(overlay);
+
+
         for (int dwaoijawp = 0; dwaoijawp < text_boxes.size(); dwaoijawp++) {
             const auto& box = text_boxes[dwaoijawp];
 
@@ -537,9 +541,23 @@ void getLocalRaspis(int iteratorQ, int pageNumber, string pdf_path) {
 
             //для преподавателй
             if (text.size() > 5 && text1251[0] > -65 && text1251[0] < -32 && dotCord == 5 && dotDopCord == 2) {
+
+                float x1 = box.bbox().x();
+                float y1 = box.bbox().y();
+                float x2 = box.bbox().right();
+                float y2 = box.bbox().bottom();
+                const int padding = 3;//отступы в маленькой версии картинки
+
+                x1 = floor(x1 * coof) - cutsOffX;
+                y1 = floor(y1 * coof) - cutsOffY;
+                x2 = floor(x2 * coof) - cutsOffX;
+                y2 = floor(y2 * coof) - cutsOffY;
+
+                Rect roi2(x1 - padding, y1 - padding, (x2 - x1 + 2 * padding) / text1251.size() * 4, y2 - y1 + 2 * padding);  // x, y, ширина, высота
+                cv::rectangle(overlay, roi2, { 255, 0, 0 }, cv::FILLED);
+
                 text.erase(6);
                 text1251.erase(4);
-
 
                 t2.push_back({ static_cast<float>(box.bbox().x()),
                     static_cast<float>(box.bbox().y()),
@@ -574,17 +592,16 @@ void getLocalRaspis(int iteratorQ, int pageNumber, string pdf_path) {
 
 
                     Rect roi2(x1 - padding, y1 - padding, x2 - x1 + 2 * padding, y2 - y1 + 2 * padding);  // x, y, ширина, высота
-
-                    Mat overlay;
-                    imageCoper2.copyTo(overlay);
                     cv::rectangle(overlay, roi2, { 0, 255, 0 }, cv::FILLED);
-                    cv::addWeighted(overlay, 0.25, imageCoper, 1 - 0.25, 0, imageCoper2);
+
 
                     timeImage = image(roi2);
                     timeFinded = 1;
                 }
             }
         }
+
+        cv::addWeighted(overlay, 0.60, imageCoper2, 1 - 0.60, 0, imageCoper2);
 
         //динамические отступы
         if (xDots[1][0] - xDots[0][0] < 3 || xDots[1][0] - xDots[0][0] > 40) {
@@ -600,6 +617,11 @@ void getLocalRaspis(int iteratorQ, int pageNumber, string pdf_path) {
 
     //разделение
     {
+        Mat overlay2, overlay3;
+        imageCoper2.copyTo(overlay2), imageCoper.copyTo(overlay3);
+
+
+
         for (int dwaoijawp = 0; dwaoijawp < text_boxes.size(); dwaoijawp++) {
             const auto& box = text_boxes[dwaoijawp];
             byte_array byte_arr = text_boxes[dwaoijawp].text().to_utf8();  // Возвращает poppler::byte_array
@@ -685,9 +707,8 @@ void getLocalRaspis(int iteratorQ, int pageNumber, string pdf_path) {
                 cv::rectangle(overlay, roi2, { 0, 255, 0 }, cv::FILLED);
                 cv::addWeighted(overlay, 0.25, tempImage, 1 - 0.25, 0, tempImage);
 
-                imageCoper.copyTo(overlay);
-                cv::rectangle(overlay, roi2, { 0, 255, 0 }, cv::FILLED);
-                cv::addWeighted(overlay, 0.60, imageCoper, 1 - 0.60, 0, imageCoper);
+
+                cv::rectangle(overlay3, roi2, { 0, 255, 0 }, cv::FILLED);
 
 
                 if (!isNewFile) {
@@ -764,6 +785,7 @@ void getLocalRaspis(int iteratorQ, int pageNumber, string pdf_path) {
                 float x1 = box.bbox().x();
                 float x2 = box.bbox().right();
                 float y1 = box.bbox().y();
+                float y2 = box.bbox().bottom();
                 int extremDot = 0, startDotXI = 0, startDotYI = 0;
                 bool isNormalText = 1;
                 float min_distantion = 500000;
@@ -814,7 +836,8 @@ void getLocalRaspis(int iteratorQ, int pageNumber, string pdf_path) {
 
                 x1 = floor(x1 * coof) - cutsOffX;
                 y1 = floor(y1 * coof) - cutsOffY;
-
+                x2 = floor(x2 * coof) - cutsOffX;
+                y2 = floor(y2 * coof) - cutsOffY;
 
                 //выбор ближайшей x точки
                 for (int i = 0; i < xDots[0].size(); i++) {
@@ -842,22 +865,22 @@ void getLocalRaspis(int iteratorQ, int pageNumber, string pdf_path) {
 
                 Rect roi1(xDots[1][0] + 1, yDots[1][startDotYI - 1] + 1, xDots[0][3] - xDots[1][0] - 1, yDots[0][startDotYI] - yDots[1][startDotYI - 1] - 1);
                 Rect roi2(xDots[1][startDotXI - 1] + 1, yDots[1][startDotYI - 1] + 1, xDots[0][startDotXI] - xDots[1][startDotXI - 1] - 1, yDots[0][startDotYI] - yDots[1][startDotYI - 1] - 1);  // x, y, ширина, высота
-
+                Rect roi3(x1 - padding, y1 - padding, (x2 - x1 + 2 * padding), y2 - y1 + 2 * padding);  // x, y, ширина, высота
 
                 Mat overlay;
-
                 teachers[text].copyTo(overlay);
+
                 cv::rectangle(overlay, roi2, { 0, 255, 0 }, cv::FILLED);
                 cv::rectangle(overlay, roi1, { 0, 255, 0 }, cv::FILLED);
                 cv::addWeighted(overlay, 0.25, teachers[text], 1 - 0.25, 0, teachers[text]);
                 //teachers[text].at<Vec3b>(y1, x1) = cv::Vec3b(0, 0, 254); // Установка цвета пикселя
 
-                imageCoper2.copyTo(overlay);
-                cv::rectangle(overlay, roi2, { 0, 255, 0 }, cv::FILLED);
-                cv::rectangle(overlay, roi1, { 0, 255, 0 }, cv::FILLED);
-                cv::addWeighted(overlay, 0.25, imageCoper2, 1 - 0.25, 0, imageCoper2);
+                cv::rectangle(overlay2, roi3, { 0, 255, 0 }, cv::FILLED);
             }
         }
+
+        cv::addWeighted(overlay3, 0.20, imageCoper, 1 - 0.20, 0, imageCoper);
+        cv::addWeighted(overlay2, 0.50, imageCoper2, 1 - 0.50, 0, imageCoper2);
     }
 
     //сохранение картинок с преподавателями

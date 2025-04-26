@@ -3,8 +3,8 @@
 #include "functions.h"
 #include "raspisCore.h"
 
-const bool BotIsEnable = 1;
-const string version = "2.3 (23.03.2024) уж точно не финал!";
+const string CurrentVers = "v2.4";
+const string version = "2.4 (23.03.2024) тест до автообновления!";
 
 struct myUser
 {
@@ -2195,7 +2195,7 @@ int main() {
             succsesStart = 1;
             logMessage("бот запущен!", "system");
 
-            while (BotIsEnable) {
+            while (true) {
                 try
                 {
                     longPoll.start();
@@ -2214,8 +2214,6 @@ int main() {
                 }
                 update();
             }
-
-            while (!BotIsEnable) Sleep(1000);//заглушка на случай отключения бота для тех работ
         }
         catch (const std::exception& e) {
             logMessage("EROR | " + (string)e.what(), "system", 2);
