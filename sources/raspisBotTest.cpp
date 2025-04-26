@@ -1794,7 +1794,7 @@ int main() {
                             int g = 0, go = 0, p = 0, o = 0;
 
                             for (auto& a : subscribedUsers) {
-                                if (a.mode == -1)
+                                if (a.group == -1)
                                     o++;
                                 else if (a.mode == 0)
                                     g++;
