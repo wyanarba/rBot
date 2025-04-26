@@ -1,11 +1,12 @@
 #pragma once
 //123
 
-const string CurrentVers = "v2.3.1";
-const string version = CurrentVers + " (23.03.2024) тест до автообновления!";
+const string CurrentVers = "v2.3.2";
+const string version = CurrentVers + " (23.04.2024) автообнова!";
 
 string FirstUrl = "https://rasp.vksit.ru/spo.pdf";
 string SecondUrl = "https://rasp.vksit.ru/npo.pdf";
+//https://wyanarba.github.io/rBot/
 string FirstDownloadFile = "spo.pdf";
 string SecondDownloadFile = "npo.pdf";
 string FirstCommand = "magick -density 400 " + FirstDownloadFile + "[0] -background white -flatten -quality 100 1.png";
@@ -19,6 +20,7 @@ DWORD SleepTime = 60000;
 bool EnableAd = 1;
 
 bool EnableAutoUpdate = 1;
+int tryesChek = 0;//1 из 10 проверка на обнову
 
 int cutsOffX = 0, cutsOffY = 0, leftEdge = 0;
 
@@ -1068,7 +1070,7 @@ void main2() {
             }
             
 
-            if(EnableAutoUpdate)
+            if(EnableAutoUpdate && tryesChek == 0)
             {
                 if (DownloadFileToMemory("https://wyanarba.github.io/rBot/", newVersion) && newVersion.size() < 8) {
                     if (newVersion != CurrentVers) {
@@ -1076,12 +1078,18 @@ void main2() {
                         system("start update.bat");
                         exit(0);
                     }
+                    tryesChek++;
                 }
                 else {
                     logMessage("Не удалось скачать версию", "system", 121);
                 }
             }
-                
+            else if (tryesChek < 10) {
+                tryesChek++;
+            }
+            else if (tryesChek == 10) {
+                tryesChek = 0;
+            }
 
             Sleep(SleepTime);
         }

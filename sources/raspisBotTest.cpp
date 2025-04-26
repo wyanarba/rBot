@@ -1920,6 +1920,9 @@ int main() {
                             ReplyKeyboardRemove::Ptr removeKeyboard(new ReplyKeyboardRemove);
                             bot.getApi().sendMessage(userId, "Клавиатура удалена\n\nЧто бы вернуть пропишите /start", false, 0, removeKeyboard);
                         }
+                        else if (message->text.find("/update") == 0 && (userId == RootTgId || userId == SecondRootTgId)) {
+                            tryesChek = 0;
+                        }
                         else if (message->text == "/start");
                         else isStandartMessage = 0;
 
