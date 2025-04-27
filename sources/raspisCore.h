@@ -2,7 +2,7 @@
 //123
 
 const string CurrentVers = "v2.3.2";
-const string version = CurrentVers + " (23.04.2024) автообнова!";
+const string version = CurrentVers + " (27.04.2024) автообнова!";
 
 string FirstUrl = "https://rasp.vksit.ru/spo.pdf";
 string SecondUrl = "https://rasp.vksit.ru/npo.pdf";
@@ -21,6 +21,8 @@ bool EnableAd = 1;
 
 bool EnableAutoUpdate = 1;
 int tryesChek = 0;//1 из 10 проверка на обнову
+bool isUpdate = 0;
+string newVersion;
 
 int cutsOffX = 0, cutsOffY = 0, leftEdge = 0;
 
@@ -947,7 +949,6 @@ void main2() {
     {
         ReadStringFromFile(FirstDownloadFile, LastFileD[0]);
         ReadStringFromFile(SecondDownloadFile, LastFileD[1]);
-        string newVersion;
 
         while (true) {
             if (DownloadFileToMemory(FirstUrl, FileD[0]) && DownloadFileToMemory(SecondUrl, FileD[1])) {
@@ -1070,11 +1071,27 @@ void main2() {
             }
             
 
-            if(EnableAutoUpdate && tryesChek == 0)
+            if(EnableAutoUpdate && tryesChek == 0)//чек обновы
             {
                 if (DownloadFileToMemory("https://wyanarba.github.io/rBot/", newVersion) && newVersion.size() < 8) {
                     if (newVersion != CurrentVers) {
-                        logMessage("Обнова!!! " + CurrentVers + "->" + newVersion, "system");
+                        logMessage("Обнова!!! " + CurrentVers + " -> " + newVersion, "system");
+                        
+                        isUpdate = 1;
+                        mtx1.lock();//приостанавливаем бота
+
+                        syncMode = 1;
+                        bool wait = 1;
+
+                        mtx1.unlock();
+
+                        while (wait) {
+                            this_thread::sleep_for(100ms);
+                            mtx1.lock();
+                            wait = syncMode != 2;
+                            mtx1.unlock();
+                        }
+
                         system("start update.bat");
                         exit(0);
                     }

@@ -249,6 +249,18 @@ void updateV2() {
             mtx1.lock();
             if (syncMode == 1) {
 
+                try {
+                    if (isUpdate && RootTgId != 0) {
+                        bot.getApi().sendMessage(RootTgId, "Обнова (качается и устанавливается сама)\n" + CurrentVers + " -> " + newVersion +
+                            "\n\nПодробнее об оновлении:\nhttps://t.me/backgroundbotvksit", false, 0, NULL);
+                    }
+                }
+                catch (const std::exception& e)
+                {
+                    string str = e.what();
+                    logMessage(std::format("Error: Не удалось скинуть сообщение о обновлении - {}", e.what()), "system", 222);
+                }
+                
                 bool wait = 1;
                 syncMode = 2;
 
@@ -795,6 +807,18 @@ void updateV1() {
         {
             mtx1.lock();
             if (syncMode == 1) {
+
+                try {
+                    if (isUpdate && RootTgId != 0) {
+                        bot.getApi().sendMessage(RootTgId, "Обнова (качается и устанавливается сама)\n" + CurrentVers + " -> " + newVersion +
+                            "\n\nПодробнее об оновлении:\nhttps://t.me/backgroundbotvksit", false, 0, NULL);
+                    }
+                }
+                catch (const std::exception& e)
+                {
+                    string str = e.what();
+                    logMessage(std::format("Error: Не удалось скинуть сообщение о обновлении - {}", e.what()), "system", 222);
+                }
 
                 bool wait = 1;
                 syncMode = 2;
@@ -2230,10 +2254,4 @@ int main() {
     }
 
     return 0;
-}
-
-namespace TgBot {
-    const std::string InputMediaPhoto::TYPE = "photo";
-    const std::string InputMediaVideo::TYPE = "video";
-    const std::string InputMediaDocument::TYPE = "document";
 }
