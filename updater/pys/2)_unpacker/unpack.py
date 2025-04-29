@@ -117,7 +117,7 @@ main_folder = "..\\..\\..\\"
 with open("black_files.txt", "r") as file:
     black_files = file.read().splitlines()
 
-with open("black_folders", "r") as file:
+with open("black_folders.txt", "r") as file:
     black_folders = file.read().splitlines()
 
 
