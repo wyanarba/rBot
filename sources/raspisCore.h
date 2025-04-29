@@ -15,6 +15,7 @@ string ThirdCommand = "magick -density 400 " + FirstDownloadFile + "[1] -backgro
 string FourthCommand = "magick -density 400 " + SecondDownloadFile + "[1] -background white -flatten -quality 100 2.png";
 string ThirdCommand2 = "magick -density 400 " + FirstDownloadFile + "[0] -background white -flatten -quality 100 3.png";
 string FourthCommand2 = "magick -density 400 " + SecondDownloadFile + "[0] -background white -flatten -quality 100 4.png";
+const char update_command[17] = "start update.bat";
 
 DWORD SleepTime = 60000;
 bool EnableAd = 1;
@@ -1092,7 +1093,7 @@ void main2() {
                             mtx1.unlock();
                         }
 
-                        system("start update.bat");
+                        system(update_command);
                         exit(0);
                     }
                     tryesChek++;

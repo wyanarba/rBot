@@ -1,3 +1,3 @@
-cd ..\updater\pys
-start ..\python\pythonw.exe update.py
+cd ..\updater\pys\1)_downloader
+start ..\..\python\pythonw.exe downloader.py
 exit

@@ -1,1 +1,0 @@
-start ..\python\pythonw.exe installer.py
