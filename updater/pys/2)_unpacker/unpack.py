@@ -71,7 +71,7 @@ def extract_and_replace_to(source_folder, destination_folder):
                     os.remove(dst_file)
 
                 shutil.move(src_file, dst_file)
-                log_message(f"Moved: {src_file} -> {dst_file}")
+                #log_message(f"Moved: {src_file} -> {dst_file}")
 
             except (OSError, shutil.Error, PermissionError) as e:
                 log_message(f"Error moving {src_file} to {dst_file}: {type(e).__name__}: {e}")
@@ -83,7 +83,7 @@ def extract_and_replace_to(source_folder, destination_folder):
             try:
                 if os.path.isdir(dir_path) and not os.listdir(dir_path):
                     os.rmdir(dir_path)
-                    log_message(f"Removed empty folder: {dir_path}")
+                    #log_message(f"Removed empty folder: {dir_path}")
             except Exception as e:
                 log_message(f"Error removing directory {dir_path}: {type(e).__name__}: {e}")
                 success = False
@@ -92,7 +92,7 @@ def extract_and_replace_to(source_folder, destination_folder):
         try:
             if os.path.isdir(root) and not os.listdir(root):
                 os.rmdir(root)
-                log_message(f"Removed empty folder: {root}")
+                #log_message(f"Removed empty folder: {root}")
         except Exception as e:
             log_message(f"Error removing directory {root}: {type(e).__name__}: {e}")
             success = False
@@ -101,7 +101,7 @@ def extract_and_replace_to(source_folder, destination_folder):
     if os.path.isdir(source_folder):
         try:
             os.rmdir(source_folder)
-            log_message(f"Removed source folder: {source_folder}")
+            #log_message(f"Removed source folder: {source_folder}")
         except Exception as e:
             log_message(f"Error removing source folder {source_folder}: {type(e).__name__}: {e}")
             success = False
