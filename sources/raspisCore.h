@@ -1,7 +1,7 @@
 #pragma once
 //123
 
-const string CurrentVers = "v2.3.3";
+const string CurrentVers = "v2.3.4";
 const string version = CurrentVers + " (27.04.2024) автообнова!";
 
 string FirstUrl = "https://rasp.vksit.ru/spo.pdf";
@@ -267,7 +267,11 @@ void getLocalRaspis(int iteratorQ, int pageNumber, string pdf_path) {
     const float coof = 5.5563;//коэффициент для перевода координат pdf в пиксели изображения5.5563
     bool isNewFile = 1;//полностью ли изменилось расписание
     unique_ptr<document> doc(document::load_from_file(pdf_path));// Загружаем PDF-документ
-    poppler::page* page = doc->create_page(pageNumber);
+    poppler::page* page = NULL;
+    if(doc->pages() != 3 || pageNumber != 0)
+        page = doc->create_page(pageNumber);
+    else
+        page = doc->create_page(2);
     Mat timeImage;
     int padding = 0;//отступы в маленькой версии картинки
     int padding1 = 0;//отступы между датой в маленькой версии картинки
@@ -1004,6 +1008,28 @@ void main2() {
                             ErrorOnCore = 1;
                         }
                     }
+                    else if (pageCount == 3) {
+                        //подготовка к обработке нового расписания
+                        prePostRaspis(3);
+
+                        //конвертирование в png
+                        system(("magick -density 400 " + FirstDownloadFile + "[2] -background white -flatten -quality 100 3.png").c_str());
+                        system(ThirdCommand.c_str());
+
+                        //обрезка фото
+                        try
+                        {
+                            editRaspis("1.png");
+                            getLocalRaspis(0, 1, FirstDownloadFile);
+                            editRaspis("3.png");
+                            getLocalRaspis(2, 0, FirstDownloadFile);
+                        }
+                        catch (const std::exception& e)
+                        {
+                            logMessage("Какой ужас! Скинь мне это tg: @wyanarba EROR: гет локалраспис | " + (string)e.what(), "system", 114);
+                            ErrorOnCore = 1;
+                        }
+                    }
 
                     //рассылка
                     postRaspis();
@@ -1045,6 +1071,28 @@ void main2() {
 
                         //конвертирование в png
                         system(FourthCommand2.c_str());
+                        system(FourthCommand.c_str());
+
+                        //обрезка фото
+                        try
+                        {
+                            editRaspis("2.png");
+                            getLocalRaspis(1, 1, SecondDownloadFile);
+                            editRaspis("4.png");
+                            getLocalRaspis(3, 0, SecondDownloadFile);
+                        }
+                        catch (const std::exception& e)
+                        {
+                            logMessage("Какой ужас! Скинь мне это tg: @wyanarba EROR: гет локалраспис | " + (string)e.what(), "system", 118);
+                            ErrorOnCore = 1;
+                        }
+                    }
+                    else if (pageCount == 3) {
+                        //подготовка к обработке нового расписания
+                        prePostRaspis(4);
+
+                        //конвертирование в png
+                        system(("magick -density 400 " + SecondDownloadFile + "[2] -background white -flatten -quality 100 4.png").c_str());
                         system(FourthCommand.c_str());
 
                         //обрезка фото
