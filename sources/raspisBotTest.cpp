@@ -61,12 +61,15 @@ vector<int64_t> GroupsForSpam;//буферная группа для рассы�
 int64_t RootTgId = 0;//тг id владельца
 int64_t SecondRootTgId = 6266601544;//мой тг id, для прав чуть по ниже
 string BotKey = "";//ключ бота
-string StartText = "";//приветсвенное сообщение
+string StartText = "";//приветственное сообщение
 bool ModeSend = 0;//режим отправки 0 - v1, 1 - v2
 //DWORD SleepTime = 60000;
 void (*update)();//функция для отправки расписания, (указатель) на неё
 //bool EnableAd = 1;
 //bool EnableAutoUpdate = 1;
+
+//bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile("1.png", "image/png"));
+//bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile("2.png", "image/png"));
 
 string formatG(string str) {
     str = Utf8_to_cp1251(str.c_str());
@@ -166,7 +169,7 @@ bool getConfig(string confName) {
                 BotKey = value;
             else if (parameter == "RootTgId")
                 RootTgId = stoll(value);
-            else if (parameter == "GroupId" && GroupsForSpam.size() < 11)
+            else if (parameter == "GroupId" && GroupsForSpam.size() < 21)
                 GroupsForSpam.push_back(stoll(value));
             else if (parameter == "Mode")
                 ModeSend = value == "1";
@@ -195,8 +198,8 @@ bool getConfig(string confName) {
 
 void saveUsers() {
 
-    for (int i = 0; i < DisabledGroups.size(); i++)
-        DisabledGroups[i] = 0;
+    for (int i = 0; i < rb::DisabledGroups.size(); i++)
+        rb::DisabledGroups[i] = 1;
 
     std::ofstream outputFile("..\\users.txt");
     for (const auto& us : subscribedUsers) {
@@ -205,8 +208,8 @@ void saveUsers() {
         else
             outputFile << us.tgId << ' ' << us.Tea << ' ' << (char)(us.mode + '0') << endl;  // Записываем оставшиеся строки
 
-        if (us.mode < 2 && us.group != -1 && DisabledGroups[us.group] == 0)
-            DisabledGroups[us.group] = 1;
+        if (us.mode < 2 && us.group != -1 && rb::DisabledGroups[us.group] == 1)
+            rb::DisabledGroups[us.group] = 0;
     }
     outputFile.close();  // Закрываем файл
 }
@@ -232,26 +235,21 @@ void saveBadUsers(int8_t mode) {
 bool IsNormalCfg = getConfig("..\\config.txt");
 TgBot::Bot bot(BotKey);
 
-int chooseGS(int id, __int8 mode) {//выбрать GroupsForSpam
-    for (int i = 0; i < edgeGroups[mode].size(); i++) {
-        if (id <= edgeGroups[mode][i])
-            return i;
-    }
-    return GroupsForSpam.size() - 1;
-}
-
 void updateV2() {
 
     try
     {
         //ожидание сообщения об отправке от ядра
         {
-            mtx1.lock();
-            if (syncMode == 1) {
+            rb::mtx1.lock();
+            if (rb::syncMode == 1) {
 
                 try {
                     if (isUpdate && RootTgId != 0) {
                         bot.getApi().sendMessage(RootTgId, "Обнова (качается и устанавливается сама)\n" + CurrentVers + " -> " + newVersion +
+                            "\n\nПодробнее об оновлении:\nhttps://t.me/backgroundbotvksit", false, 0, NULL);
+
+                        bot.getApi().sendMessage(SecondRootTgId, "Обнова (качается и устанавливается сама)\n" + CurrentVers + " -> " + newVersion +
                             "\n\nПодробнее об оновлении:\nhttps://t.me/backgroundbotvksit", false, 0, NULL);
                     }
                 }
@@ -262,181 +260,129 @@ void updateV2() {
                 }
                 
                 bool wait = 1;
-                syncMode = 2;
+                rb::syncMode = 2;
 
-                mtx1.unlock();
+                rb::mtx1.unlock();
 
                 while (wait) {
                     this_thread::sleep_for(300ms);
-                    mtx1.lock();
-                    wait = syncMode != 3;
-                    mtx1.unlock();
+                    rb::mtx1.lock();
+                    wait = rb::syncMode != 3;
+                    rb::mtx1.unlock();
                 }
             }
             else {
-                mtx1.unlock();
+                rb::mtx1.unlock();
                 return;
             }
         }
             
 
         
-        int32_t mi1, mi2;//messageId для основного и доп фото
         int triesToSend = 0;//попытки отправки одному человеку
+        int edgeGroup = 0;// кол-во файлов на буферную группу
+        corps& corp = rb::corpss[rb::currentCorps];
 
-        if (!ErrorOnCore) {//расписание успешно обработано
+        if (!rb::ErrorOnCore) {//расписание успешно обработано
 
             logMessage("Отправка расписания в группу", "system", 3);
-            //отправка в группу
-            {
-                int countG = 0, localCount = 0;
-                edgeGroups[0].clear();
 
-                for (auto& a : GroupsB[ModeS]) {//распределение 
-                    if (a.isExists)
-                        countG++;
+            // Отправка в группу
+            {
+                int countG = 0, localCount = 0;//кол-во групп 1, кол-во групп 2
+
+                for (auto& mPage : corp.pages) {
+                    if (!mPage.isEmpty)
+                        for (auto& group : mPage.groups)
+                            if (group.isExists)
+                                countG++;
                 }
 
                 countG = countG / GroupsForSpam.size() + 1;
 
-                for (int i = 0; i < GroupsB[ModeS].size(); i++) {
-                    if (GroupsB[ModeS][i].isExists)
-                        localCount++;
 
-                    if (localCount == countG) {
-                        localCount = 0;
-                        edgeGroups[0].push_back(i);
-                    }
-                }
-
+                //отправка в группу
                 bool success = 0;
-
-                for (int i = 0; i < Groups.size(); i++) {
-                    try
-                    {
-                        if (GroupsB[ModeS][i].isExists) {
-                            auto message = bot.getApi().sendPhoto(GroupsForSpam[chooseGS(i, 0)], TgBot::InputFile::fromFile(ModeStr + "\\" + Groups1251[i] + ".png", "image/png"));
-                            GroupsB[ModeS][i].messageId = message->messageId;
-
-                            if (IsNewRaspis[0] || AltGroupsB[0][i]) {
-                                message = bot.getApi().sendPhoto(GroupsForSpam[chooseGS(i, 0)], TgBot::InputFile::fromFile(ModeStr + "\\" + Groups1251[i] + "S.png", "image/png"));
-                                GroupsB[ModeS][i].messageIdS = message->messageId;
-                            }
-                        }
-                    }
-                    catch (const std::exception& e)
-                    {
-                        logMessage(std::format("Error: {} | {}", e.what(), Groups[i]), "system", 4);
-                        i--;
-                    }
-
-                }
-                while (!success) {
-                    try
-                    {
-                        auto message = bot.getApi().sendPhoto(GroupsForSpam[GroupsForSpam.size() - 1], TgBot::InputFile::fromFile(ModeStr + ".png", "image/png"));
-                        mi1 = message->messageId;
-                        success = 1;
-                    }
-                    catch (const std::exception& e)
-                    {
-                        logMessage(std::format("Error: {}", e.what()), "system", 5);
-                    }
-                }
+                
+                for (auto& mPage : corp.pages) {
+                    if (mPage.isEmpty)
+                        continue;
 
 
-
-
-                if (Mode > 2) {
-                    countG = 0, localCount = 0;
-                    edgeGroups[1].clear();
-
-                    for (auto& a : GroupsB[ModeVs]) {//распределение 
-                        if (a.isExists)
-                            countG++;
-                    }
-
-                    countG = countG / GroupsForSpam.size() + 1;
-
-                    for (int i = 0; i < GroupsB[ModeVs].size(); i++) {
-                        if (GroupsB[ModeVs][i].isExists)
-                            localCount++;
-
-                        if (localCount == countG) {
-                            localCount = 0;
-                            edgeGroups[1].push_back(i);
-                        }
-                    }
-
-
-                    success = 0;
-
-                    for (int i = 0; i < Groups.size(); i++) {
-                        try
+                    for (int i = 0; i < mPage.groups.size(); i++) {
+                        try 
                         {
-                            if (GroupsB[ModeVs][i].isExists) {
-                                auto message = bot.getApi().sendPhoto(GroupsForSpam[chooseGS(i, 1)], TgBot::InputFile::fromFile(AltModeStr + "\\" + Groups1251[i] + ".png", "image/png"));
-                                GroupsB[ModeVs][i].messageId = message->messageId;
+                            auto& group = mPage.groups[i];
 
-                                if(IsNewRaspis[1] || AltGroupsB[1][i]){
-                                    message = bot.getApi().sendPhoto(GroupsForSpam[chooseGS(i, 1)], TgBot::InputFile::fromFile(AltModeStr + "\\" + Groups1251[i] + "S.png", "image/png"));
-                                    GroupsB[ModeVs][i].messageIdS = message->messageId;
+                            if (group.isExists) {
+                                localCount++;
+                                group.idSpam = (localCount / countG) % GroupsForSpam.size();
+
+                                auto message = bot.getApi().sendPhoto(GroupsForSpam[group.idSpam], 
+                                    TgBot::InputFile::fromFile(rb::imgPath + mPage.folderName + "\\" + Groups1251[i] + ".png", "image/png"));
+                                group.messageId = message->messageId;
+
+
+                                if (mPage.IsNewPage || group.changed) {
+                                    auto message = bot.getApi().sendPhoto(GroupsForSpam[group.idSpam],
+                                        TgBot::InputFile::fromFile(rb::imgPath + mPage.folderName + "\\" + Groups1251[i] + "S.png", "image/png"));
+                                    group.messageIdS = message->messageId;
                                 }
                             }
                         }
                         catch (const std::exception& e)
                         {
-                            logMessage(std::format("Error: {}", e.what()), "system" , 6);
+                            logMessage(std::format("Error: {} | {}", e.what(), Groups[i]), "system", 4);
                             i--;
+                            localCount--;
                         }
                     }
-
                     while (!success) {
                         try
                         {
-                            auto message = bot.getApi().sendPhoto(GroupsForSpam[GroupsForSpam.size() - 1], TgBot::InputFile::fromFile(AltModeStr + ".png", "image/png"));
-                            mi2 = message->messageId;
+                            auto message = bot.getApi().sendPhoto(GroupsForSpam[GroupsForSpam.size() - 1], 
+                                TgBot::InputFile::fromFile(rb::imgPath + mPage.folderName + ".png", "image/png"));
+                            mPage.mi = message->messageId;
                             success = 1;
                         }
                         catch (const std::exception& e)
                         {
-                            logMessage(std::format("Error: {}", e.what()), "system", 7);
+                            logMessage(std::format("Error: {}", e.what()), "system", 5);
                         }
                     }
-
                 }
             }
 
 
             logMessage("Отправка расписания людям", "system", 8);
+
             //рассылка
-            if (Mode < 3) {
-                for (int i = 0; i < subscribedUsers.size(); i++) {
+            for (int i = 0; i < subscribedUsers.size(); i++) {
+                auto& us = subscribedUsers[i];
+
+                for (auto& mPage : corp.pages) {
+                    if (mPage.isEmpty)
+                        continue;
+
                     try {
-                        if (subscribedUsers[i].group == -1) {
-                            bot.getApi().copyMessage(subscribedUsers[i].tgId, GroupsForSpam[GroupsForSpam.size() - 1], mi1);
+                        if (us.group == -1) {// общее
+                            bot.getApi().copyMessage(us.tgId, GroupsForSpam[GroupsForSpam.size() - 1], mPage.mi);
                         }
-                        else {
-                            if (subscribedUsers[i].mode == 0 && GroupsB[ModeS][subscribedUsers[i].group].isExists)
-                                bot.getApi().copyMessage(subscribedUsers[i].tgId, GroupsForSpam[chooseGS(subscribedUsers[i].group, 0)], GroupsB[ModeS][subscribedUsers[i].group].messageId);
-
-                            else if (subscribedUsers[i].mode == 1 && GroupsB[ModeS][subscribedUsers[i].group].isExists) {
-                                if(IsNewRaspis[0] || AltGroupsB[0][subscribedUsers[i].group])
-                                    bot.getApi().copyMessage(subscribedUsers[i].tgId, GroupsForSpam[chooseGS(subscribedUsers[i].group, 0)], GroupsB[ModeS][subscribedUsers[i].group].messageIdS);
-                            }
-                                
-
-                            else if (subscribedUsers[i].mode == 2 || subscribedUsers[i].mode == 3) {
-                                if (Teachers[ModeS].find(subscribedUsers[i].Tea) != Teachers[ModeS].end())
-                                    bot.getApi().sendPhoto(subscribedUsers[i].tgId, TgBot::InputFile::fromFile(ModeStr + "\\" + Utf8_to_cp1251(subscribedUsers[i].Tea.c_str()) + ".png", "image/png"));
-                                else if (subscribedUsers[i].mode == 2)
-                                    bot.getApi().sendPhoto(subscribedUsers[i].tgId, TgBot::InputFile::fromFile(ModeStr + ".png", "image/png"));
-                            }
+                        else if (us.mode == 0 && mPage.groups[us.group].isExists) {
+                            bot.getApi().copyMessage(us.tgId, GroupsForSpam[mPage.groups[us.group].idSpam], mPage.groups[us.group].messageId);
+                        }
+                        else if (us.mode == 1 && mPage.groups[us.group].isExists && (mPage.IsNewPage || mPage.groups[us.group].changed)) {
+                            bot.getApi().copyMessage(us.tgId, GroupsForSpam[mPage.groups[us.group].idSpam], mPage.groups[us.group].messageIdS);
+                        }
+                        else if (us.mode == 2 || us.mode == 3) {
+                            if (mPage.Teachers.find(us.Tea) != mPage.Teachers.end())
+                                bot.getApi().sendPhoto(us.tgId, TgBot::InputFile::fromFile(rb::imgPath + mPage.folderName + "\\" + Utf8_to_cp1251(us.Tea.c_str()) + ".png", "image/png"));
+                            else if (us.mode == 2)
+                                bot.getApi().sendPhoto(us.tgId, TgBot::InputFile::fromFile(rb::imgPath + mPage.folderName + ".png", "image/png"));
                         }
 
                         triesToSend = 0;
                     }
-
                     catch (const std::exception& e) {
                         string error = e.what();
                         if (find_if(errorsForBan.begin(), errorsForBan.end(), [error](const string& obj) { return error.find(obj) != string::npos; }) != errorsForBan.end()) {
@@ -470,89 +416,7 @@ void updateV2() {
                             }
                         }
                     }
-                }
-            }
-            else {
-                
-                for (int i = 0; i < subscribedUsers.size(); i++) {
-                    try {
-                        if (subscribedUsers[i].group == -1) {
-                            bot.getApi().copyMessage(subscribedUsers[i].tgId, GroupsForSpam[GroupsForSpam.size() - 1], mi1);
-                            bot.getApi().copyMessage(subscribedUsers[i].tgId, GroupsForSpam[GroupsForSpam.size() - 1], mi2);
-                        }
-                        else {
-                            if (subscribedUsers[i].mode == 0) {
-                                if (GroupsB[ModeS][subscribedUsers[i].group].isExists)
-                                    bot.getApi().copyMessage(subscribedUsers[i].tgId, GroupsForSpam[chooseGS(subscribedUsers[i].group, 0)], GroupsB[ModeS][subscribedUsers[i].group].messageId);
 
-                                if (GroupsB[ModeVs][subscribedUsers[i].group].isExists)
-                                    bot.getApi().copyMessage(subscribedUsers[i].tgId, GroupsForSpam[chooseGS(subscribedUsers[i].group, 1)], GroupsB[ModeVs][subscribedUsers[i].group].messageId);
-                            }
-
-
-                            else if (subscribedUsers[i].mode == 1) {
-                                if (GroupsB[ModeS][subscribedUsers[i].group].isExists && (IsNewRaspis[0] || AltGroupsB[0][subscribedUsers[i].group]))
-                                    bot.getApi().copyMessage(subscribedUsers[i].tgId, GroupsForSpam[chooseGS(subscribedUsers[i].group, 0)], GroupsB[ModeS][subscribedUsers[i].group].messageIdS);
-
-                                if (GroupsB[ModeVs][subscribedUsers[i].group].isExists && (IsNewRaspis[1] || AltGroupsB[1][subscribedUsers[i].group]))
-                                    bot.getApi().copyMessage(subscribedUsers[i].tgId, GroupsForSpam[chooseGS(subscribedUsers[i].group, 1)], GroupsB[ModeVs][subscribedUsers[i].group].messageIdS);
-                            }
-
-
-                            else if (subscribedUsers[i].mode == 2 || subscribedUsers[i].mode == 3) {
-                                if (Teachers[ModeS].find(subscribedUsers[i].Tea) != Teachers[ModeS].end()) {
-                                    bot.getApi().sendPhoto(subscribedUsers[i].tgId, TgBot::InputFile::fromFile(ModeStr + "\\" + Utf8_to_cp1251(subscribedUsers[i].Tea.c_str()) + ".png", "image/png"));
-                                }
-                                else if (subscribedUsers[i].mode == 2){
-                                    bot.getApi().sendPhoto(subscribedUsers[i].tgId, TgBot::InputFile::fromFile(ModeStr + ".png", "image/png"));
-                                }
-
-                                if (Teachers[ModeVs].find(subscribedUsers[i].Tea) != Teachers[ModeVs].end()) {
-                                    bot.getApi().sendPhoto(subscribedUsers[i].tgId, TgBot::InputFile::fromFile(AltModeStr + "\\" + Utf8_to_cp1251(subscribedUsers[i].Tea.c_str()) + ".png", "image/png"));
-                                }
-                                else if (subscribedUsers[i].mode == 2) {
-                                    bot.getApi().sendPhoto(subscribedUsers[i].tgId, TgBot::InputFile::fromFile(AltModeStr + ".png", "image/png"));
-                                }
-
-                            }
-                        }
-
-                        triesToSend = 0;
-                    }
-
-                    catch (const std::exception& e) {
-                        string error = e.what();
-                        if (find_if(errorsForBan.begin(), errorsForBan.end(), [error](const string& obj) { return error.find(obj) != string::npos; }) != errorsForBan.end()) {
-                            logMessage("БАН! " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 13);
-
-                            auto UserNumber = find_if(subscribedUsers.begin(), subscribedUsers.end(),
-                                [i](const myUser& obj) { return obj.tgId == subscribedUsers[i].tgId; });
-
-                            subscribedUsers.erase(UserNumber);
-
-                            i--;
-                        }
-                        else {
-                            if (triesToSend > 20) {
-                                logMessage("УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС 123!) " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 14);
-                                try {
-                                    bot.getApi().sendMessage(subscribedUsers[i].tgId, "Простите за не удобство, попытка отправки расписания вам не удалась", false, 0);
-                                }
-                                catch (const std::exception& e) {
-                                    error = e.what();
-                                    logMessage("УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС 123! в извинениях) " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 15);
-                                }
-
-                                triesToSend = 0;
-                            }
-                            else {
-                                logMessage("123) " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 16);
-                                i--;
-                                triesToSend++;
-                                Sleep(1000);
-                            }
-                        }
-                    }
                 }
             }
 
@@ -561,68 +425,20 @@ void updateV2() {
                 int tryingToDelete = 0;
                 bool success = 0;
 
-                for (int i = 0; i < Groups.size(); i++) {
-                    try
-                    {
-                        if (GroupsB[ModeS][i].isExists) {
-                            bot.getApi().deleteMessage(GroupsForSpam[chooseGS(i, 0)], GroupsB[ModeS][i].messageId);
-                            if (IsNewRaspis[0] || AltGroupsB[0][i])
-                                bot.getApi().deleteMessage(GroupsForSpam[chooseGS(i, 0)], GroupsB[ModeS][i].messageIdS);
+                for (auto& mPage : corp.pages) {
+                    if (mPage.isEmpty)
+                        continue;
 
-                            tryingToDelete = 0;
-                        }
-                    }
-                    catch (const std::exception& e)
-                    {
-                        string str = e.what();
-                        if (str.find("message to delete not found") == string::npos) {
-                            tryingToDelete++;
-
-                            logMessage(std::format("Error: {}", e.what()), "system", 17);
-                            if (tryingToDelete < 10)
-                                i--;
-                            else
-                                tryingToDelete = 0;
-                        }
-                    }
-
-                }
-                tryingToDelete = 0;
-                while (!success) {
-                    try
-                    {
-                        bot.getApi().deleteMessage(GroupsForSpam[GroupsForSpam.size() - 1], mi1);
-                        success = 1;
-                    }
-                    catch (const std::exception& e)
-                    {
-                        string str = e.what();
-                        if (str.find("message to delete not found") == string::npos) {
-                            tryingToDelete++;
-
-                            logMessage(std::format("Error: {}", e.what()), "system", 18);
-                            if (tryingToDelete > 10)
-                                success = 1;
-                        }
-                        else
-                            success = 1;
-                    }
-                }
-
-
-
-
-                if (Mode > 2) {
-                    tryingToDelete = 0;
-                    success = 0;
-
-                    for (int i = 0; i < Groups.size(); i++) {
+                    for (int i = 0; i < mPage.groups.size(); i++) {
                         try
                         {
-                            if (GroupsB[ModeVs][i].isExists) {
-                                bot.getApi().deleteMessage(GroupsForSpam[chooseGS(i, 1)], GroupsB[ModeVs][i].messageId);
-                                if (IsNewRaspis[1] || AltGroupsB[1][i])
-                                    bot.getApi().deleteMessage(GroupsForSpam[chooseGS(i, 1)], GroupsB[ModeVs][i].messageIdS);
+                            auto& group = mPage.groups[i];
+
+                            if (group.isExists) {
+                                bot.getApi().deleteMessage(GroupsForSpam[group.idSpam], group.messageId);
+
+                                if (mPage.IsNewPage || group.changed)
+                                    bot.getApi().deleteMessage(GroupsForSpam[group.idSpam], group.messageIdS);
 
                                 tryingToDelete = 0;
                             }
@@ -633,7 +449,7 @@ void updateV2() {
                             if (str.find("message to delete not found") == string::npos) {
                                 tryingToDelete++;
 
-                                logMessage(std::format("Error: {}", e.what()), "system", 19);
+                                logMessage(std::format("Error: {}", e.what()), "system", 17);
                                 if (tryingToDelete < 10)
                                     i--;
                                 else
@@ -641,12 +457,12 @@ void updateV2() {
                             }
                         }
                     }
-                    tryingToDelete = 0;
 
+                    tryingToDelete = 0;
                     while (!success) {
                         try
                         {
-                            bot.getApi().deleteMessage(GroupsForSpam[GroupsForSpam.size() - 1], mi2);
+                            bot.getApi().deleteMessage(GroupsForSpam[GroupsForSpam.size() - 1], mPage.mi);
                             success = 1;
                         }
                         catch (const std::exception& e)
@@ -655,7 +471,7 @@ void updateV2() {
                             if (str.find("message to delete not found") == string::npos) {
                                 tryingToDelete++;
 
-                                logMessage(std::format("Error: {}", e.what()), "system", 20);
+                                logMessage(std::format("Error: {}", e.what()), "system", 18);
                                 if (tryingToDelete > 10)
                                     success = 1;
                             }
@@ -663,7 +479,6 @@ void updateV2() {
                                 success = 1;
                         }
                     }
-
                 }
             }
 
@@ -675,38 +490,43 @@ void updateV2() {
         else {//отработка ощибки
             //отправка в группу
             bool success = 0;
-            while (!success) {
-                try
-                {
-                    auto message = bot.getApi().sendPhoto(GroupsForSpam[GroupsForSpam.size() - 1], TgBot::InputFile::fromFile(ModeStr + ".png", "image/png"));
-                    mi1 = message->messageId;
 
-                    if (Mode > 2) {
-                        auto message = bot.getApi().sendPhoto(GroupsForSpam[GroupsForSpam.size() - 1], TgBot::InputFile::fromFile(AltModeStr + ".png", "image/png"));
-                        mi2 = message->messageId;
+            //отправка в группу
+            for (auto& mPage : corp.pages) {
+                if (mPage.isEmpty)
+                    continue;
+
+                while (!success) {
+                    try
+                    {
+                        auto message = bot.getApi().sendPhoto(GroupsForSpam[GroupsForSpam.size() - 1],
+                            TgBot::InputFile::fromFile(rb::imgPath + mPage.folderName + ".png", "image/png"));
+                        mPage.mi = message->messageId;
+                        success = 1;
                     }
-
-                    success = 1;
-                }
-                catch (const std::exception& e)
-                {
-                    logMessage(std::format("Error: {}", e.what()), "system", 22);
+                    catch (const std::exception& e)
+                    {
+                        logMessage(std::format("Error: {}", e.what()), "system", 5);
+                    }
                 }
             }
-
+            
             //рассылка
-            if (Mode < 3) {
-                for (int i = 0; i < subscribedUsers.size(); i++) {
-                    try {
-                        bot.getApi().copyMessage(subscribedUsers[i].tgId, GroupsForSpam[GroupsForSpam.size() - 1], mi1);
+            for (int i = 0; i < subscribedUsers.size(); i++) {
+                auto& us = subscribedUsers[i];
 
+                for (auto& mPage : corp.pages) {
+                    if (mPage.isEmpty)
+                        continue;
+
+                    try {
+                        bot.getApi().copyMessage(us.tgId, GroupsForSpam[GroupsForSpam.size() - 1], mPage.mi);
                         triesToSend = 0;
                     }
-
                     catch (const std::exception& e) {
                         string error = e.what();
                         if (find_if(errorsForBan.begin(), errorsForBan.end(), [error](const string& obj) { return error.find(obj) != string::npos; }) != errorsForBan.end()) {
-                            logMessage("БАН! " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 23);
+                            logMessage("БАН! " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 9);
 
                             auto UserNumber = find_if(subscribedUsers.begin(), subscribedUsers.end(),
                                 [i](const myUser& obj) { return obj.tgId == subscribedUsers[i].tgId; });
@@ -717,68 +537,58 @@ void updateV2() {
                         }
                         else {
                             if (triesToSend > 20) {
-                                logMessage("УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС 123!) " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 24);
+                                logMessage("УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС 123!) " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 10);
                                 try {
                                     bot.getApi().sendMessage(subscribedUsers[i].tgId, "Простите за не удобство, попытка отправки расписания вам не удалась", false, 0);
                                 }
                                 catch (const std::exception& e) {
                                     error = e.what();
-                                    logMessage("УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС 123! в извинениях) " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 25);
+                                    logMessage("УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС 123! в извинениях) " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 11);
                                 }
 
                                 triesToSend = 0;
                             }
                             else {
-                                logMessage("123) " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 26);
+                                logMessage("123) " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 12);
                                 i--;
                                 triesToSend++;
                                 Sleep(1000);
                             }
                         }
                     }
+
                 }
             }
-            else {
 
-                for (int i = 0; i < subscribedUsers.size(); i++) {
-                    try {
-                        bot.getApi().copyMessage(subscribedUsers[i].tgId, GroupsForSpam[GroupsForSpam.size() - 1], mi1);
-                        bot.getApi().copyMessage(subscribedUsers[i].tgId, GroupsForSpam[GroupsForSpam.size() - 1], mi2);
+            
+            //удаление из группы
+            {
+                int tryingToDelete = 0;
+                bool success = 0;
 
-                        triesToSend = 0;
-                    }
+                for (auto& mPage : corp.pages) {
+                    if (mPage.isEmpty)
+                        continue;
 
-                    catch (const std::exception& e) {
-                        string error = e.what();
-                        if (find_if(errorsForBan.begin(), errorsForBan.end(), [error](const string& obj) { return error.find(obj) != string::npos; }) != errorsForBan.end()) {
-                            logMessage("БАН! " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 27);
-
-                            auto UserNumber = find_if(subscribedUsers.begin(), subscribedUsers.end(),
-                                [i](const myUser& obj) { return obj.tgId == subscribedUsers[i].tgId; });
-
-                            subscribedUsers.erase(UserNumber);
-
-                            i--;
+                    tryingToDelete = 0;
+                    while (!success) {
+                        try
+                        {
+                            bot.getApi().deleteMessage(GroupsForSpam[GroupsForSpam.size() - 1], mPage.mi);
+                            success = 1;
                         }
-                        else {
-                            if (triesToSend > 20) {
-                                logMessage("УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС 123!) " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 28);
-                                try {
-                                    bot.getApi().sendMessage(subscribedUsers[i].tgId, "Простите за не удобство, попытка отправки расписания вам не удалась", false, 0);
-                                }
-                                catch (const std::exception& e) {
-                                    error = e.what();
-                                    logMessage("УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС 123! в извинениях) " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 29);
-                                }
+                        catch (const std::exception& e)
+                        {
+                            string str = e.what();
+                            if (str.find("message to delete not found") == string::npos) {
+                                tryingToDelete++;
 
-                                triesToSend = 0;
+                                logMessage(std::format("Error: {}", e.what()), "system", 18);
+                                if (tryingToDelete > 10)
+                                    success = 1;
                             }
-                            else {
-                                logMessage("123) " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 30);
-                                i--;
-                                triesToSend++;
-                                Sleep(1000);
-                            }
+                            else
+                                success = 1;
                         }
                     }
                 }
@@ -794,9 +604,9 @@ void updateV2() {
         logMessage("УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС 11) EROR | " + (string)e.what(), "system", 31);
     }
 
-    mtx1.lock();
-    syncMode = 0;
-    mtx1.unlock();
+    rb::mtx1.lock();
+    rb::syncMode = 0;
+    rb::mtx1.unlock();
 }
 
 void updateV1() {
@@ -805,12 +615,15 @@ void updateV1() {
     {
         //ожидание сообщения об отправке от ядра
         {
-            mtx1.lock();
-            if (syncMode == 1) {
+            rb::mtx1.lock();
+            if (rb::syncMode == 1) {
 
                 try {
                     if (isUpdate && RootTgId != 0) {
                         bot.getApi().sendMessage(RootTgId, "Обнова (качается и устанавливается сама)\n" + CurrentVers + " -> " + newVersion +
+                            "\n\nПодробнее об оновлении:\nhttps://t.me/backgroundbotvksit", false, 0, NULL);
+
+                        bot.getApi().sendMessage(SecondRootTgId, "Обнова (качается и устанавливается сама)\n" + CurrentVers + " -> " + newVersion +
                             "\n\nПодробнее об оновлении:\nhttps://t.me/backgroundbotvksit", false, 0, NULL);
                     }
                 }
@@ -821,62 +634,65 @@ void updateV1() {
                 }
 
                 bool wait = 1;
-                syncMode = 2;
+                rb::syncMode = 2;
 
-                mtx1.unlock();
+                rb::mtx1.unlock();
 
                 while (wait) {
                     this_thread::sleep_for(300ms);
-                    mtx1.lock();
-                    wait = syncMode != 3;
-                    mtx1.unlock();
+                    rb::mtx1.lock();
+                    wait = rb::syncMode != 3;
+                    rb::mtx1.unlock();
                 }
             }
             else {
-                mtx1.unlock();
+                rb::mtx1.unlock();
                 return;
             }
         }
 
 
-
         int triesToSend = 0;//попытки отправки одному человеку
+        int edgeGroup = 0;// кол-во файлов на буферную группу
+        corps& corp = rb::corpss[rb::currentCorps];
 
-        if (!ErrorOnCore) {//расписание успешно обработано
+        if (!rb::ErrorOnCore) {//расписание успешно обработано
 
-            logMessage("Отправка расписания людям", "system", 32);
+            logMessage("Отправка расписания людям", "system", 8);
+
             //рассылка
-            if (Mode < 3) {
-                for (int i = 0; i < subscribedUsers.size(); i++) {
+            for (int i = 0; i < subscribedUsers.size(); i++) {
+                auto& us = subscribedUsers[i];
+
+                for (auto& mPage : corp.pages) {
+                    if (mPage.isEmpty)
+                        continue;
+
                     try {
-                        if (subscribedUsers[i].group == -1) {
-                            bot.getApi().sendPhoto(subscribedUsers[i].tgId, TgBot::InputFile::fromFile(ModeStr + ".png", "image/png"));
+                        if (us.group == -1) {// общее
+                            bot.getApi().sendPhoto(us.tgId, TgBot::InputFile::fromFile(rb::imgPath + mPage.folderName + ".png", "image/png"));
                         }
-                        else {
-                            if (subscribedUsers[i].mode == 0 && GroupsB[ModeS][subscribedUsers[i].group].isExists)
-                                bot.getApi().sendPhoto(subscribedUsers[i].tgId, TgBot::InputFile::fromFile(ModeStr + "\\" + Groups1251[subscribedUsers[i].group] + ".png", "image/png"));
-
-                            else if (subscribedUsers[i].mode == 1 && GroupsB[ModeS][subscribedUsers[i].group].isExists) {
-                                if (IsNewRaspis[0] || AltGroupsB[0][subscribedUsers[i].group])
-                                    bot.getApi().sendPhoto(subscribedUsers[i].tgId, TgBot::InputFile::fromFile(ModeStr + "\\" + Groups1251[subscribedUsers[i].group] + "S.png", "image/png"));
-                            }
-
-
-                            else if (subscribedUsers[i].mode == 2 || subscribedUsers[i].mode == 3) {
-                                if (Teachers[ModeS].find(subscribedUsers[i].Tea) != Teachers[ModeS].end())
-                                    bot.getApi().sendPhoto(subscribedUsers[i].tgId, TgBot::InputFile::fromFile(ModeStr + "\\" + Utf8_to_cp1251(subscribedUsers[i].Tea.c_str()) + ".png", "image/png"));
-                                else if (subscribedUsers[i].mode == 2)
-                                    bot.getApi().sendPhoto(subscribedUsers[i].tgId, TgBot::InputFile::fromFile(ModeStr + ".png", "image/png"));
-                            }
+                        else if (us.mode == 0 && mPage.groups[us.group].isExists) {
+                            bot.getApi().sendPhoto(us.tgId, 
+                                TgBot::InputFile::fromFile(rb::imgPath + mPage.folderName + "\\" + Groups1251[subscribedUsers[i].group] + ".png", "image/png"));
+                        }
+                        else if (us.mode == 1 && mPage.groups[us.group].isExists && (mPage.IsNewPage || mPage.groups[us.group].changed)) {
+                            bot.getApi().sendPhoto(us.tgId,
+                                TgBot::InputFile::fromFile(rb::imgPath + mPage.folderName + "\\" + Groups1251[subscribedUsers[i].group] + "S.png", "image/png"));
+                        }
+                        else if (us.mode == 2 || us.mode == 3) {
+                            if (mPage.Teachers.find(us.Tea) != mPage.Teachers.end())
+                                bot.getApi().sendPhoto(us.tgId, TgBot::InputFile::fromFile(rb::imgPath + mPage.folderName + "\\" + Utf8_to_cp1251(us.Tea.c_str()) + ".png", "image/png"));
+                            else if (us.mode == 2)
+                                bot.getApi().sendPhoto(us.tgId, TgBot::InputFile::fromFile(rb::imgPath + mPage.folderName + ".png", "image/png"));
                         }
 
                         triesToSend = 0;
                     }
-
                     catch (const std::exception& e) {
                         string error = e.what();
                         if (find_if(errorsForBan.begin(), errorsForBan.end(), [error](const string& obj) { return error.find(obj) != string::npos; }) != errorsForBan.end()) {
-                            logMessage("БАН! " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 33);
+                            logMessage("БАН! " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 9);
 
                             auto UserNumber = find_if(subscribedUsers.begin(), subscribedUsers.end(),
                                 [i](const myUser& obj) { return obj.tgId == subscribedUsers[i].tgId; });
@@ -887,131 +703,57 @@ void updateV1() {
                         }
                         else {
                             if (triesToSend > 20) {
-                                logMessage("УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС 123!) " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 34);
+                                logMessage("УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС 123!) " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 10);
                                 try {
                                     bot.getApi().sendMessage(subscribedUsers[i].tgId, "Простите за не удобство, попытка отправки расписания вам не удалась", false, 0);
                                 }
                                 catch (const std::exception& e) {
                                     error = e.what();
-                                    logMessage("УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС 123! в извинениях) " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 35);
+                                    logMessage("УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС 123! в извинениях) " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 11);
                                 }
 
                                 triesToSend = 0;
                             }
                             else {
-                                logMessage("123) " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 36);
+                                logMessage("123) " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 12);
                                 i--;
                                 triesToSend++;
                                 Sleep(1000);
                             }
                         }
                     }
-                }
-            }
-            else {
 
-                for (int i = 0; i < subscribedUsers.size(); i++) {
-                    try {
-                        if (subscribedUsers[i].group == -1) {
-                            bot.getApi().sendPhoto(subscribedUsers[i].tgId, TgBot::InputFile::fromFile(ModeStr + ".png", "image/png"));
-                            bot.getApi().sendPhoto(subscribedUsers[i].tgId, TgBot::InputFile::fromFile(AltModeStr + ".png", "image/png"));
-                        }
-                        else {
-                            if (subscribedUsers[i].mode == 0) {
-                                if (GroupsB[ModeS][subscribedUsers[i].group].isExists)
-                                    bot.getApi().sendPhoto(subscribedUsers[i].tgId, TgBot::InputFile::fromFile(ModeStr + "\\" + Groups1251[subscribedUsers[i].group] + ".png", "image/png"));
-
-                                if (GroupsB[ModeVs][subscribedUsers[i].group].isExists)
-                                    bot.getApi().sendPhoto(subscribedUsers[i].tgId, TgBot::InputFile::fromFile(AltModeStr + "\\" + Groups1251[subscribedUsers[i].group] + ".png", "image/png"));
-                            }
-
-
-                            else if (subscribedUsers[i].mode == 1) {
-                                if (GroupsB[ModeS][subscribedUsers[i].group].isExists && (IsNewRaspis[0] || AltGroupsB[0][subscribedUsers[i].group]))
-                                    bot.getApi().sendPhoto(subscribedUsers[i].tgId, TgBot::InputFile::fromFile(ModeStr + "\\" + Groups1251[subscribedUsers[i].group] + "S.png", "image/png"));
-
-                                if (GroupsB[ModeVs][subscribedUsers[i].group].isExists && (IsNewRaspis[1] || AltGroupsB[1][subscribedUsers[i].group]))
-                                    bot.getApi().sendPhoto(subscribedUsers[i].tgId, TgBot::InputFile::fromFile(AltModeStr + "\\" + Groups1251[subscribedUsers[i].group] + "S.png", "image/png"));
-                            }
-
-
-                            else if (subscribedUsers[i].mode == 2 || subscribedUsers[i].mode == 3) {
-                                if (Teachers[ModeS].find(subscribedUsers[i].Tea) != Teachers[ModeS].end()) {
-                                    bot.getApi().sendPhoto(subscribedUsers[i].tgId, TgBot::InputFile::fromFile(ModeStr + "\\" + Utf8_to_cp1251(subscribedUsers[i].Tea.c_str()) + ".png", "image/png"));
-                                }
-                                else if (subscribedUsers[i].mode == 2) {
-                                    bot.getApi().sendPhoto(subscribedUsers[i].tgId, TgBot::InputFile::fromFile(ModeStr + ".png", "image/png"));
-                                }
-
-                                if (Teachers[ModeVs].find(subscribedUsers[i].Tea) != Teachers[ModeVs].end()) {
-                                    bot.getApi().sendPhoto(subscribedUsers[i].tgId, TgBot::InputFile::fromFile(AltModeStr + "\\" + Utf8_to_cp1251(subscribedUsers[i].Tea.c_str()) + ".png", "image/png"));
-                                }
-                                else if (subscribedUsers[i].mode == 2) {
-                                    bot.getApi().sendPhoto(subscribedUsers[i].tgId, TgBot::InputFile::fromFile(AltModeStr + ".png", "image/png"));
-                                }
-
-                            }
-                        }
-
-                        triesToSend = 0;
-                    }
-
-                    catch (const std::exception& e) {
-                        string error = e.what();
-                        if (find_if(errorsForBan.begin(), errorsForBan.end(), [error](const string& obj) { return error.find(obj) != string::npos; }) != errorsForBan.end()) {
-                            logMessage("БАН! " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 37);
-
-                            auto UserNumber = find_if(subscribedUsers.begin(), subscribedUsers.end(),
-                                [i](const myUser& obj) { return obj.tgId == subscribedUsers[i].tgId; });
-
-                            subscribedUsers.erase(UserNumber);
-
-                            i--;
-                        }
-                        else {
-                            if (triesToSend > 20) {
-                                logMessage("УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС 123!) " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 38);
-                                try {
-                                    bot.getApi().sendMessage(subscribedUsers[i].tgId, "Простите за не удобство, попытка отправки расписания вам не удалась", false, 0);
-                                }
-                                catch (const std::exception& e) {
-                                    error = e.what();
-                                    logMessage("УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС 123! в извинениях) " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 39);
-                                }
-
-                                triesToSend = 0;
-                            }
-                            else {
-                                logMessage("123) " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 40);
-                                i--;
-                                triesToSend++;
-                                Sleep(1000);
-                            }
-                        }
-                    }
                 }
             }
 
             //сохранение пользователей
             saveUsers();
 
-            logMessage("Конец отправки", "system", 41);
+            logMessage("Конец отправки", "system", 21);
         }
-        else {
+        else {//отработка ошибки
+            //отправка в группу
+            bool success = 0;
+
+            logMessage("Отправка расписания людям", "system", 8);
 
             //рассылка
-            if (Mode < 3) {
-                for (int i = 0; i < subscribedUsers.size(); i++) {
+            for (int i = 0; i < subscribedUsers.size(); i++) {
+                auto& us = subscribedUsers[i];
+
+                for (auto& mPage : corp.pages) {
+                    if (mPage.isEmpty)
+                        continue;
+
                     try {
-                        bot.getApi().sendPhoto(subscribedUsers[i].tgId, TgBot::InputFile::fromFile(ModeStr + ".png", "image/png"));
+                        bot.getApi().sendPhoto(us.tgId, TgBot::InputFile::fromFile(rb::imgPath + mPage.folderName + ".png", "image/png"));
 
                         triesToSend = 0;
                     }
-
                     catch (const std::exception& e) {
                         string error = e.what();
                         if (find_if(errorsForBan.begin(), errorsForBan.end(), [error](const string& obj) { return error.find(obj) != string::npos; }) != errorsForBan.end()) {
-                            logMessage("БАН! " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 42);
+                            logMessage("БАН! " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 9);
 
                             auto UserNumber = find_if(subscribedUsers.begin(), subscribedUsers.end(),
                                 [i](const myUser& obj) { return obj.tgId == subscribedUsers[i].tgId; });
@@ -1022,72 +764,29 @@ void updateV1() {
                         }
                         else {
                             if (triesToSend > 20) {
-                                logMessage("УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС 123!) " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 51);
+                                logMessage("УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС 123!) " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 10);
                                 try {
                                     bot.getApi().sendMessage(subscribedUsers[i].tgId, "Простите за не удобство, попытка отправки расписания вам не удалась", false, 0);
                                 }
                                 catch (const std::exception& e) {
                                     error = e.what();
-                                    logMessage("УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС 123! в извинениях) " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 54);
+                                    logMessage("УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС 123! в извинениях) " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 11);
                                 }
 
                                 triesToSend = 0;
                             }
                             else {
-                                logMessage("123) " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 43);
+                                logMessage("123) " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 12);
                                 i--;
                                 triesToSend++;
                                 Sleep(1000);
                             }
                         }
                     }
+
                 }
             }
-            else {
 
-                for (int i = 0; i < subscribedUsers.size(); i++) {
-                    try {
-                        bot.getApi().sendPhoto(subscribedUsers[i].tgId, TgBot::InputFile::fromFile(ModeStr + ".png", "image/png"));
-                        bot.getApi().sendPhoto(subscribedUsers[i].tgId, TgBot::InputFile::fromFile(AltModeStr + ".png", "image/png"));
-
-                        triesToSend = 0;
-                    }
-
-                    catch (const std::exception& e) {
-                        string error = e.what();
-                        if (find_if(errorsForBan.begin(), errorsForBan.end(), [error](const string& obj) { return error.find(obj) != string::npos; }) != errorsForBan.end()) {
-                            logMessage("БАН! " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 44);
-
-                            auto UserNumber = find_if(subscribedUsers.begin(), subscribedUsers.end(),
-                                [i](const myUser& obj) { return obj.tgId == subscribedUsers[i].tgId; });
-
-                            subscribedUsers.erase(UserNumber);
-
-                            i--;
-                        }
-                        else {
-                            if (triesToSend > 20) {
-                                logMessage("УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС 123!) " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 45);
-                                try {
-                                    bot.getApi().sendMessage(subscribedUsers[i].tgId, "Простите за не удобство, попытка отправки расписания вам не удалась", false, 0);
-                                }
-                                catch (const std::exception& e) {
-                                    error = e.what();
-                                    logMessage("УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС 123! в извинениях) " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 46);
-                                }
-
-                                triesToSend = 0;
-                            }
-                            else {
-                                logMessage("123) " + (string)e.what() + " | " + to_string(subscribedUsers[i].tgId), "system", 47);
-                                i--;
-                                triesToSend++;
-                                Sleep(1000);
-                            }
-                        }
-                    }
-                }
-            }
 
             //сохранение пользователей
             saveUsers();
@@ -1096,12 +795,12 @@ void updateV1() {
     }
     catch (const std::exception& e)
     {
-        logMessage("УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС 11) EROR | " + (string)e.what(), "system", 48);
+        logMessage("УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС 11) EROR | " + (string)e.what(), "system", 31);
     }
 
-    mtx1.lock();
-    syncMode = 0;
-    mtx1.unlock();
+    rb::mtx1.lock();
+    rb::syncMode = 0;
+    rb::mtx1.unlock();
 }
 
 int main() {
@@ -1133,46 +832,53 @@ int main() {
         exit(-1);
     }
 
-    //инициализация групп
-    for (int i = 0; i < Groups.size(); i++) {
-        GroupsB[0].push_back(false);
-        GroupsB[1].push_back(false);
-        GroupsB[2].push_back(false);
-        GroupsB[3].push_back(false);
-        AltGroupsB[0].push_back(false);
-        AltGroupsB[1].push_back(false);
-        DisabledGroups.push_back(false);
+    //инициализация переменных
+    {
+        rb::corpss.push_back(corps("spo.pdf", 0));
+        rb::corpss.push_back(corps("npo.pdf", 1));
+        rb::DisabledGroups.assign(Groups.size(), 1);
 
-        Groups1251.push_back(Utf8_to_cp1251(Groups[i].c_str()));
+        for (int i = 0; i < Groups.size(); i++) {
+            Groups1251.push_back(Utf8_to_cp1251(Groups[i].c_str()));
+        }
     }
 
     //чтение папок
     {
         string currentFile;
-        for (int j = 0; j < 4; j++) {
-            for (const auto& entry : fs::directory_iterator(to_string(j + 1))) {
-                bool isGroup = 0;
-                currentFile = cp1251_to_utf8(entry.path().filename().string().c_str());
-                currentFile = currentFile.erase(currentFile.size() - 4);
 
+        for (corps& corp : rb::corpss) {
+            for (auto& page : corp.pages) {
+                bool groupF = 0;//было ли расписание групп
 
-                for (int i = 0; i < Groups.size(); i++) {
-                    if (Groups[i] == currentFile) {
-                        isGroup = 1;
-                        GroupsB[j][i] = 1;
-                        i = Groups.size();
+                for (const auto& entry : fs::directory_iterator(rb::imgPath + page.folderName)) {
+                    currentFile = cp1251_to_utf8(entry.path().filename().string().c_str());
+
+                    if (currentFile.find(".png") != string::npos) {
+                        currentFile = currentFile.erase(currentFile.size() - 4);
+                        int groupId = findGroup(currentFile);
+
+                        if (groupId != -1) {
+                            page.groups[groupId] = 1;
+                            groupF = 1;
+                        }
+                        else if (currentFile[currentFile.size() - 1] != 'S')
+                            page.Teachers.insert(currentFile);
                     }
                 }
 
-                if (!isGroup && currentFile[currentFile.size() - 1] != 'S') {
-                    Teachers[j].insert(currentFile);
+                if (page.Teachers.size() != 0 || groupF) {
+                    page.isEmpty = 0;
+                    corp.pagesUse++;
                 }
+                else
+                    page.isEmpty = 1;
             }
         }
 
         ifstream ifs("4\\t.txt");
         while (getline(ifs, currentFile)) {
-            DefTeachers.insert(currentFile);
+            rb::AllTeachers.insert(currentFile);
         }
     }
 
@@ -1206,8 +912,8 @@ int main() {
 
                 subscribedUsers.push_back(myU);
 
-                if (myU.mode < 2 && myU.group != -1 && DisabledGroups[myU.group] == 0)
-                    DisabledGroups[myU.group] = 1;
+                if (myU.mode < 2 && myU.group != -1 && rb::DisabledGroups[myU.group] == 1)
+                    rb::DisabledGroups[myU.group] = 0;
             }
         }
         getChatIdsOnFile.close();
@@ -1475,12 +1181,13 @@ int main() {
                                     tUher->mode = 1;
                                     saveUsers();
 
-                                    if (GroupsB[0][tUher -> group].isExists)
-                                        bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile("1\\" + Utf8_to_cp1251(Groups[tUher->group].c_str()) + "S.png", "image/png"));
-                                    if (GroupsB[1][tUher->group].isExists)
-                                        bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile("2\\" + Utf8_to_cp1251(Groups[tUher->group].c_str()) + "S.png", "image/png"));
-                                    if (GroupsB[1][group - Groups.begin()].isExists && GroupsB[0][group - Groups.begin()].isExists)
-                                        bot.getApi().sendMessage(userId, "Расписание группы \"" + commandParam + "\" не найдено", false, 0, NULL);
+                                    for (corps& corp : rb::corpss) {
+                                        for (auto& page : corp.pages) {
+                                            if(page.groups[tUher->group].isExists)
+                                                bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile(rb::imgPath + page.folderName + "\\"
+                                                    + Utf8_to_cp1251(Groups[tUher->group].c_str()) + "S.png", "image/png"));
+                                        }
+                                    }
                                 }
                                 else if(isNormalCommand)
                                     bot.getApi().sendMessage(userId, "Группа \"" + commandParam + "\" не найдена", false, 0, NULL);
@@ -1525,12 +1232,13 @@ int main() {
                                     tUher->mode = 0;
                                     saveUsers();
 
-                                    if (GroupsB[0][tUher->group].isExists)
-                                        bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile("1\\" + Utf8_to_cp1251(Groups[tUher->group].c_str()) + ".png", "image/png"));
-                                    if (GroupsB[1][tUher->group].isExists)
-                                        bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile("2\\" + Utf8_to_cp1251(Groups[tUher->group].c_str()) + ".png", "image/png"));
-                                    if (GroupsB[1][group - Groups.begin()].isExists && GroupsB[0][group - Groups.begin()].isExists)
-                                        bot.getApi().sendMessage(userId, "Расписание группы \"" + commandParam + "\" не найдено", false, 0, NULL);
+                                    for (corps& corp : rb::corpss) {
+                                        for (auto& page : corp.pages) {
+                                            if (page.groups[tUher->group].isExists)
+                                                bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile(rb::imgPath + page.folderName + "\\"
+                                                    + Utf8_to_cp1251(Groups[tUher->group].c_str()) + ".png", "image/png"));
+                                        }
+                                    }
                                 }
                                 else if (isNormalCommand)
                                     bot.getApi().sendMessage(userId, "Группа \"" + commandParam + "\" не найдена", false, 0, NULL);
@@ -1585,19 +1293,24 @@ int main() {
                                     saveUsers();
 
 
-                                    if (Teachers[0].find(teacher) != Teachers[0].end())
-                                        bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile("1\\" + altTeacher + ".png", "image/png"));
-                                    else
-                                        bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile("1.png", "image/png"));
+                                    for (corps& corp : rb::corpss) {
+                                        bool is_sanded = 0;
 
+                                        for (auto& page : corp.pages) {
+                                            if (page.Teachers.find(teacher) != page.Teachers.end()) {
+                                                is_sanded = 1;
 
-                                    if (Teachers[1].find(teacher) != Teachers[1].end())
-                                        bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile("2\\" + altTeacher + ".png", "image/png"));
-                                    else
-                                        bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile("2.png", "image/png"));
+                                                bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile(rb::imgPath + page.folderName + "\\"
+                                                    + altTeacher + ".png", "image/png"));
+                                            }
+                                        }
+
+                                        if(!is_sanded)
+                                            bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile(rb::imgPath + to_string(corp.pagesUse - 1) + ".png", "image/png"));
+                                    }
                                 }
                                 else if (isNormalCommand)
-                                    bot.getApi().sendMessage(userId, "ФИО преподавателя должна состоять из русских символов, точек и пробела (не обязательно)", false, 0, NULL);
+                                    bot.getApi().sendMessage(userId, "ФИО преподавателя должно состоять из русских символов, точек и пробела (не обязательно)", false, 0, NULL);
                             }
                             else {
                                 bot.getApi().sendMessage(userId, "Добавьте ФИО преподавателя в сообщение\nПример: /sub_p Авдуевская Н.С.", false, 0, NULL);
@@ -1619,12 +1332,13 @@ int main() {
                                 }
 
                                 if (isActualTea) {
-                                    if (Teachers[0].find(commandParam) != Teachers[0].end())
-                                        bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile("1\\" + altTeacher + ".png", "image/png"));
-
-
-                                    if (Teachers[1].find(commandParam) != Teachers[1].end())
-                                        bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile("2\\" + altTeacher + ".png", "image/png"));
+                                    for (corps& corp : rb::corpss) {
+                                        for (auto& page : corp.pages) {
+                                            if (page.Teachers.find(commandParam) != page.Teachers.end())
+                                                bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile(rb::imgPath + page.folderName + "\\"
+                                                    + altTeacher + ".png", "image/png"));
+                                        }
+                                    }
                                 }
                             }
                             else
@@ -1637,12 +1351,13 @@ int main() {
                                 auto group = find(Groups.begin(), Groups.end(), commandParam);
 
                                 if (group != Groups.end()) {
-                                    if (GroupsB[0][group - Groups.begin()].isExists)
-                                        bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile("1\\" + Utf8_to_cp1251(Groups[group - Groups.begin()].c_str()) + ".png", "image/png"));
-                                    if (GroupsB[1][group - Groups.begin()].isExists)
-                                        bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile("2\\" + Utf8_to_cp1251(Groups[group - Groups.begin()].c_str()) + ".png", "image/png"));
-                                    if (GroupsB[1][group - Groups.begin()].isExists && GroupsB[0][group - Groups.begin()].isExists)
-                                        bot.getApi().sendMessage(userId, "Расписание группы \"" + commandParam + "\" не найдено", false, 0, NULL);
+                                    for (corps& corp : rb::corpss) {
+                                        for (auto& page : corp.pages) {
+                                            if (page.groups[group - Groups.begin()].isExists)
+                                                bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile(rb::imgPath + page.folderName + "\\"
+                                                    + Utf8_to_cp1251(Groups[group - Groups.begin()].c_str()) + ".png", "image/png"));
+                                        }
+                                    }
                                 }
                                 else
                                     bot.getApi().sendMessage(userId, "Группа \"" + commandParam + "\" не найдена", false, 0, NULL);
@@ -1830,13 +1545,12 @@ int main() {
                             }
 
                                     bot.getApi().sendMessage(userId, "Пользователи: " + to_string(subscribedUsers.size()) + 
-                                        "\nПреподаватели (всего): " + to_string(DefTeachers.size()) +
+                                        "\nПреподаватели (всего): " + to_string(rb::AllTeachers.size()) +
                                         "\nРежим рассылки: " + to_string(ModeSend + 1) +
                                         "\nБуферных групп: " + to_string(GroupsForSpam.size()) +
                                         "\nЗадержка проверки: " + to_string(SleepTime / 1000) +
                                         "\nРеклама: " + (EnableAd ? "Вкл." : "Выкл.") +
                                         "\nАвто обнова: " + (EnableAutoUpdate ? "Вкл." : "Выкл.") +
-                                        "\nГрупп без подписчиков (в последней рассылке): " + to_string(DisabledGroupsC) +
                                         "\nP: " + to_string(p) +
                                         "\nG: " + to_string(g) +
                                         "\nGO: " + to_string(go) +
@@ -2045,8 +1759,9 @@ int main() {
                             bot.getApi().sendMessage(userId, "Вы подписались на общее расписание", false, 0, NULL);
                             tUher->group = -1;
                             saveUsers();
-                            bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile("1.png", "image/png"));
-                            bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile("2.png", "image/png"));
+                            for (auto &corp : rb::corpss) {
+                                bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile(rb::imgPath + to_string(corp.pagesUse - 1) + ".png", "image/png"));
+                            }
                         }
                     }
                     else if (message->text == "Состояние подписки") {
@@ -2130,8 +1845,9 @@ int main() {
                     }
                     else if (message->text == "Получить общее расписание") {
 
-                        bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile("1.png", "image/png"));
-                        bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile("2.png", "image/png"));
+                        for (auto &corp : rb::corpss) {
+                            bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile(rb::imgPath + to_string(corp.pagesUse - 1) + ".png", "image/png"));
+                        }
                     }
                     else if (message->text == "Получить расписание преподавателя") {
                         bot.getApi().sendMessage(userId, "Пример сообщения целиком: /get_p Авдуевская Н.С.", false, 0, NULL);
@@ -2184,8 +1900,9 @@ int main() {
 
                             saveUsers();
 
-                            bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile("1.png", "image/png"));
-                            bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile("2.png", "image/png"));
+                            for (auto &corp : rb::corpss) {
+                                bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile(rb::imgPath + to_string(corp.pagesUse - 1) + ".png", "image/png"));
+                            }
                         }
                         bot.getApi().sendMessage(userId, "Вы подписались на расписание.", false, 0, mainMenuKeyboard);
 
