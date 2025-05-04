@@ -1,7 +1,7 @@
 #pragma once
 //123
 
-const string CurrentVers = "v3.1";
+const string CurrentVers = "v3.2";
 const string version = CurrentVers + " (04.05.2024) 10 страниц??";
 
 string FirstUrl = "https://rasp.vksit.ru/";

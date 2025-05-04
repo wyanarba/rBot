@@ -362,6 +362,7 @@ void updateV2() {
             //рассылка
             for (int i = 0; i < subscribedUsers.size(); i++) {
                 auto& us = subscribedUsers[i];
+                triesToSend = 0;
 
                 for (auto& mPage : corp.pages) {
                     if (mPage.isEmpty)
@@ -435,6 +436,8 @@ void updateV2() {
                     for (int i = 0; i < mPage.groups.size(); i++) {
                         try
                         {
+                            tryingToDelete = 0;
+
                             auto& group = mPage.groups[i];
 
                             if (group.isExists && !rb::DisabledGroups[i]) {
