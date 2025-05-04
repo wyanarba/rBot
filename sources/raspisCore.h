@@ -1,6 +1,7 @@
 #pragma once
 //123
 
+<<<<<<< HEAD
 const string CurrentVers = "v2.3.3";
 const string version = CurrentVers + " (27.04.2024) автообнова!";
 
@@ -15,6 +16,21 @@ string ThirdCommand = "magick -density 400 " + FirstDownloadFile + "[1] -backgro
 string FourthCommand = "magick -density 400 " + SecondDownloadFile + "[1] -background white -flatten -quality 100 2.png";
 string ThirdCommand2 = "magick -density 400 " + FirstDownloadFile + "[0] -background white -flatten -quality 100 3.png";
 string FourthCommand2 = "magick -density 400 " + SecondDownloadFile + "[0] -background white -flatten -quality 100 4.png";
+=======
+const string CurrentVers = "v3.2";
+const string version = CurrentVers + " (04.05.2024) 10 страниц??";
+
+string FirstUrl = "https://rasp.vksit.ru/";
+//https://wyanarba.github.io/rBot/
+//string FirstDownloadFile = "spo.pdf";
+//string SecondDownloadFile = "npo.pdf";
+//string FirstCommand = "magick -density 400 " + FirstDownloadFile + "[0] -background white -flatten -quality 100 1.png";
+//string SecondCommand = "magick -density 400 " + SecondDownloadFile + "[0] -background white -flatten -quality 100 2.png";
+//string ThirdCommand = "magick -density 400 " + FirstDownloadFile + "[1] -background white -flatten -quality 100 1.png";
+//string FourthCommand = "magick -density 400 " + SecondDownloadFile + "[1] -background white -flatten -quality 100 2.png";
+//string ThirdCommand2 = "magick -density 400 " + FirstDownloadFile + "[0] -background white -flatten -quality 100 3.png";
+//string FourthCommand2 = "magick -density 400 " + SecondDownloadFile + "[0] -background white -flatten -quality 100 4.png";
+>>>>>>> 21ac72141b9780693265b1634dfc8422140931c8
 const char update_command[17] = "start update.bat";
 
 DWORD SleepTime = 60000;
@@ -27,17 +43,27 @@ string newVersion;
 
 int cutsOffX = 0, cutsOffY = 0, leftEdge = 0;
 
+<<<<<<< HEAD
 string LastFileD[2], FileD[2];//файлы .pdf с расписанием
 
 void postRaspis() {
     mtx1.lock();//отправляем сообщение боту и ожидаем завершения отправки расписания
     syncMode = 3;
     mtx1.unlock();
+=======
+string FileD;//файлы .pdf с расписанием
+
+void postRaspis() {
+    rb::mtx1.lock();//отправляем сообщение боту и ожидаем завершения отправки расписания
+    rb::syncMode = 3;
+    rb::mtx1.unlock();
+>>>>>>> 21ac72141b9780693265b1634dfc8422140931c8
 
     bool wait = 1;
 
     while (wait) {
         this_thread::sleep_for(300ms);
+<<<<<<< HEAD
         mtx1.lock();
         wait = syncMode != 0;
         mtx1.unlock();
@@ -103,6 +129,11 @@ void prePostRaspis(int mode) {//подготовка к обработке но�
             GroupsB[ModeS][i].isExists2 = 0;
             AltGroupsB[0][i] = 0;
         }
+=======
+        rb::mtx1.lock();
+        wait = rb::syncMode != 0;
+        rb::mtx1.unlock();
+>>>>>>> 21ac72141b9780693265b1634dfc8422140931c8
     }
 }
 
@@ -254,9 +285,15 @@ void editRaspis(string filePath) {
     leftEdge = margin;
 }
 
+<<<<<<< HEAD
 void getLocalRaspis(int iteratorQ, int pageNumber, string pdf_path) {
 
     string imageName = to_string(iteratorQ + 1) + ".png", folderToSave = to_string(iteratorQ + 1) + "\\";
+=======
+void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
+
+    string imageName = rb::imgPath + mPage.folderName + ".png", folderToSave = rb::imgPath + mPage.folderName + "\\";
+>>>>>>> 21ac72141b9780693265b1634dfc8422140931c8
 
     set <string>spamText, lastGroups;//преподаватели и изменённые группы
     map <string, Mat>teachers;//картинки преподов
@@ -267,7 +304,12 @@ void getLocalRaspis(int iteratorQ, int pageNumber, string pdf_path) {
     const float coof = 5.5563;//коэффициент для перевода координат pdf в пиксели изображения5.5563
     bool isNewFile = 1;//полностью ли изменилось расписание
     unique_ptr<document> doc(document::load_from_file(pdf_path));// Загружаем PDF-документ
+<<<<<<< HEAD
     poppler::page* page = doc->create_page(pageNumber);
+=======
+    poppler::page* page = NULL;
+    page = doc->create_page(pageNum);
+>>>>>>> 21ac72141b9780693265b1634dfc8422140931c8
     Mat timeImage;
     int padding = 0;//отступы в маленькой версии картинки
     int padding1 = 0;//отступы между датой в маленькой версии картинки
@@ -498,10 +540,14 @@ void getLocalRaspis(int iteratorQ, int pageNumber, string pdf_path) {
         else
             logMessage("Не большое изменение", "system");
 
+<<<<<<< HEAD
         if (iteratorQ < 2)
             IsNewRaspis[0] = isNewFile;
         else
             IsNewRaspis[1] = isNewFile;
+=======
+        mPage.IsNewPage = isNewFile;
+>>>>>>> 21ac72141b9780693265b1634dfc8422140931c8
 
 
         if (isNewFile) {
@@ -733,6 +779,7 @@ void getLocalRaspis(int iteratorQ, int pageNumber, string pdf_path) {
 
                         // Сравниваем каждый канал
                         if (result.size() != sImageLast.size() || cv::countNonZero(channels1[0] != channels2[0]) != 0) {
+<<<<<<< HEAD
                             int i;
                             for (i = 0; i < Groups.size(); i++) {
                                 if (Groups[i] == text) {
@@ -746,11 +793,19 @@ void getLocalRaspis(int iteratorQ, int pageNumber, string pdf_path) {
 
                             }
                             if (i == Groups.size()) {
+=======
+                            int groupId = findGroup(text);
+                            if (groupId != -1) {
+                                mPage.groups[groupId].changed = 1;
+                            }
+                            else {
+>>>>>>> 21ac72141b9780693265b1634dfc8422140931c8
                                 logMessage("Неожиданная группа " + text, "system");
                             }
                         }
                     }
                     else {
+<<<<<<< HEAD
                         int i;
                         for (i = 0; i < Groups.size(); i++) {
                             if (Groups[i] == text) {
@@ -764,6 +819,13 @@ void getLocalRaspis(int iteratorQ, int pageNumber, string pdf_path) {
                             }
                         }
                         if (i == Groups.size()) {
+=======
+                        int groupId = findGroup(text);
+                        if (groupId != -1) {
+                            mPage.groups[groupId].changed = 1;
+                        }
+                        else {
+>>>>>>> 21ac72141b9780693265b1634dfc8422140931c8
                             logMessage("Неожиданная группа " + text, "system");
                         }
                     }
@@ -773,6 +835,7 @@ void getLocalRaspis(int iteratorQ, int pageNumber, string pdf_path) {
                     logMessage("Не удалось записать файл " + text, "system");
 
                 if (cv::imwrite(folderToSave + Utf8_to_cp1251(text.c_str()) + ".png", tempImage)) {
+<<<<<<< HEAD
                     int i = 0;
                     for (; i < Groups.size(); i++) {
                         //cout << text << ",2 " << Groups[i] << endl;
@@ -782,6 +845,13 @@ void getLocalRaspis(int iteratorQ, int pageNumber, string pdf_path) {
                         }
                     }
                     if (i == Groups.size()) {
+=======
+                    int groupId = findGroup(text);
+                    if (groupId != -1) {
+                        mPage.groups[groupId] = 1;
+                    }
+                    else {
+>>>>>>> 21ac72141b9780693265b1634dfc8422140931c8
                         logMessage("Неожиданная группа " + text, "system");
                     }
                 }
@@ -896,11 +966,16 @@ void getLocalRaspis(int iteratorQ, int pageNumber, string pdf_path) {
     //сохранение картинок с преподавателями
     for (auto& teacher : teachers) {
         if (cv::imwrite(folderToSave + Utf8_to_cp1251(teacher.first.c_str()) + ".png", teacher.second))
+<<<<<<< HEAD
             Teachers[iteratorQ].insert(teacher.first);
+=======
+            mPage.Teachers.insert(teacher.first);
+>>>>>>> 21ac72141b9780693265b1634dfc8422140931c8
         else {
             logMessage("Не удалось записать файл " + teacher.first, "system");
         }
 
+<<<<<<< HEAD
         if (DefTeachers.find(teacher.first) == DefTeachers.end())
             DefTeachers.insert(teacher.first);
     }
@@ -908,10 +983,20 @@ void getLocalRaspis(int iteratorQ, int pageNumber, string pdf_path) {
     //запись учителей
     std::ofstream outputFile("4\\t.txt");
     for (const string& tea : DefTeachers) {
+=======
+        if (rb::AllTeachers.find(teacher.first) == rb::AllTeachers.end())
+            rb::AllTeachers.insert(teacher.first);
+    }
+
+    //запись учителей
+    std::ofstream outputFile(rb::imgPath + "4\\t.txt");
+    for (const string& tea : rb::AllTeachers) {
+>>>>>>> 21ac72141b9780693265b1634dfc8422140931c8
         outputFile << tea << '\n';
     }
     outputFile.close();  // Закрываем файл
 
+<<<<<<< HEAD
     //запись фамилий
     DisabledGroupsC = 0;//хотел бы я нормально учитывать субботу, но это того не стоит(
     for (int i = 0; i < Groups.size(); i++) {
@@ -922,6 +1007,8 @@ void getLocalRaspis(int iteratorQ, int pageNumber, string pdf_path) {
         }
     }
 
+=======
+>>>>>>> 21ac72141b9780693265b1634dfc8422140931c8
     //добавление рекламы
     if (EnableAd) {
         Mat adImg = imread("..\\imgs\\ad.png");
@@ -948,6 +1035,7 @@ void getLocalRaspis(int iteratorQ, int pageNumber, string pdf_path) {
 void main2() {
     try
     {
+<<<<<<< HEAD
         ReadStringFromFile(FirstDownloadFile, LastFileD[0]);
         ReadStringFromFile(SecondDownloadFile, LastFileD[1]);
 
@@ -975,10 +1063,77 @@ void main2() {
                         {
                             editRaspis("1.png");
                             getLocalRaspis(0, 0, FirstDownloadFile);
+=======
+        for (corps &corp : rb::corpss) {
+            ReadStringFromFile(corp.pdfFileName, corp.LastFileD);
+        }
+
+        while (true) {
+
+            // Обновление расписания
+            for (corps& corp : rb::corpss) {
+                if (!DownloadFileToMemory(FirstUrl + corp.pdfFileName, FileD)) {
+                    logMessage("Не удалось скачать файл с расписанием", "system", 120);
+                    continue;
+                }
+                
+                if (FileD != corp.LastFileD) {
+                    logMessage("Начало обработки нового расписания, " + to_string(corp.localOffset + 1) + " корпус", "system", 112);
+
+                    WriteStringToFile(FileD, corp.pdfFileName);
+                    corp.LastFileD = FileD;
+
+                    int pageCount = getPDFPageCount(corp.pdfFileName);
+                    
+                    if(pageCount > rb::pagesInBui)
+                        logMessage("Больше максималки страниц, impossible", "system", 112);
+
+                    //приостанавливаем бота
+                    {
+                        rb::mtx1.lock();
+
+                        rb::syncMode = 1;
+                        bool wait = 1;
+
+                        rb::mtx1.unlock();
+
+                        while (wait) {
+                            this_thread::sleep_for(100ms);
+                            rb::mtx1.lock();
+                            wait = rb::syncMode != 2;
+                            rb::mtx1.unlock();
+                        }
+                    }
+
+                    // зачистка переменных корпуса
+                    {
+                        corp.pagesUse = 0;
+
+                        for (auto& page : corp.pages)
+                            page.clear();
+
+                        rb::ErrorOnCore = 0;
+                    }
+
+                    for (int i = 0; i < pageCount && i < rb::pagesInBui; i++) {
+                        auto& page = corp.pages[i];
+                        page.isEmpty = 0;
+                        corp.pagesUse++;
+
+                        system(std::format("magick -density 400 {}[{}] -background white -flatten -quality 100 {}.png",
+                            corp.pdfFileName, i, rb::imgPath + page.folderName).c_str());
+                        
+                        //обрезка фото
+                        try
+                        {
+                            editRaspis(rb::imgPath + page.folderName + ".png");
+                            getLocalRaspis(page, corp.pdfFileName, i);
+>>>>>>> 21ac72141b9780693265b1634dfc8422140931c8
                         }
                         catch (const std::exception& e)
                         {
                             logMessage("Какой ужас! Скинь мне это tg: @wyanarba EROR: гет локалраспис | " + (string)e.what(), "system", 113);
+<<<<<<< HEAD
                             ErrorOnCore = 1;
                         }
                     }
@@ -1002,10 +1157,14 @@ void main2() {
                         {
                             logMessage("Какой ужас! Скинь мне это tg: @wyanarba EROR: гет локалраспис | " + (string)e.what(), "system", 114);
                             ErrorOnCore = 1;
+=======
+                            rb::ErrorOnCore = 1;
+>>>>>>> 21ac72141b9780693265b1634dfc8422140931c8
                         }
                     }
 
                     //рассылка
+<<<<<<< HEAD
                     postRaspis();
 
                     logMessage("Конец обработки нового расписания", "system", 115);
@@ -1108,6 +1267,55 @@ void main2() {
             else if (tryesChek == 10) {
                 tryesChek = 0;
             }
+=======
+                    rb::currentCorps = corp.localOffset;
+                    postRaspis();
+                    logMessage("Конец обработки нового расписания", "system", 115);
+                }
+
+            }
+
+            // Поиск обновы
+            {
+                if (EnableAutoUpdate && tryesChek == 0)//чек обновы
+                {
+                    if (DownloadFileToMemory("https://wyanarba.github.io/rBot/", newVersion) && newVersion.size() < 8) {
+                        if (newVersion != CurrentVers) {
+                            logMessage("Обнова!!! " + CurrentVers + " -> " + newVersion, "system");
+
+                            isUpdate = 1;
+                            rb::mtx1.lock();//приостанавливаем бота
+
+                            rb::syncMode = 1;
+                            bool wait = 1;
+
+                            rb::mtx1.unlock();
+
+                            while (wait) {
+                                this_thread::sleep_for(100ms);
+                                rb::mtx1.lock();
+                                wait = rb::syncMode != 2;
+                                rb::mtx1.unlock();
+                            }
+
+                            system(update_command);
+                            exit(0);
+                        }
+                        tryesChek++;
+                    }
+                    else {
+                        logMessage("Не удалось скачать версию", "system", 121);
+                    }
+                }
+                else if (tryesChek < 10) {
+                    tryesChek++;
+                }
+                else if (tryesChek == 10) {
+                    tryesChek = 0;
+                }
+            }
+
+>>>>>>> 21ac72141b9780693265b1634dfc8422140931c8
 
             Sleep(SleepTime);
         }

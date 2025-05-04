@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 * { box-sizing: border-box; } body {margin: 0;}:root{--gjs-t-color-primary:#cf549e;--gjs-t-color-secondary:#b9227d;--gjs-t-color-accent:#ffb347;--gjs-t-color-success:#28a745;--gjs-t-color-warning:#ffc107;--gjs-t-color-error:#dc3545;}body{background-color:#e7e7e7;font-family:system-ui, sans-serif;margin:0;}.head{padding:50px 50px 35px;}.logo{height:50px;display:block;margin:0 auto;}.card{max-width:700px;padding:40px 45px;background-color:white;border-radius:15px;margin:0 auto;}.title{margin:0;text-align:center;}.gjs-t-body{background-color:inherit;color:inherit;font-size:1rem;line-height:1.75rem;}.subtitle{text-align:center;margin:0;padding:25px 0;}.paragraph{line-height:1.5;margin-bottom:40px;}.link{color:#af4e8a;text-decoration:none;font-size:13px;}.footer{margin-top:30px;text-align:center;}.gjs-t-h1{color:var(--gjs-t-color-secondary);font-size:1.5rem;line-height:2.5rem;}.button{display:block;padding:0.5rem 1rem;text-decoration:none;text-align:center;border-width:0;}.gjs-t-h2{color:#601843;font-size:1.2rem;line-height:1.75rem;}.gjs-t-button{background-color:var(--gjs-t-color-primary);color:white;border-radius:0.3rem;}.gjs-t-link{color:var(--gjs-t-color-primary);text-decoration:underline;}.gjs-t-border{border-radius:0.3rem;border-color:#e0e0e0;}*{box-sizing:border-box;}.gjs-t-body{background-color:inherit;color:inherit;font-size:1rem;line-height:1.75rem;}.gjs-t-h1{color:var(--gjs-t-color-secondary);font-size:1.5rem;line-height:2.5rem;}.gjs-plg-flex-column{flex-grow:1;}.gjs-plg-flex-row{display:flex;align-items:stretch;flex-wrap:nowrap;}.gjs-t-h2{color:#601843;font-size:1.2rem;line-height:1.75rem;}#imala{gap:2%;margin-top:2rem;}#itx03{flex-basis:49%;}#i5gkt{flex-basis:49%;}.gjs-t-button{background-color:var(--gjs-t-color-primary);color:white;border-radius:0.3rem;}#i61fu{height:200px;}.gjs-t-link{color:var(--gjs-t-color-primary);text-decoration:underline;}.gjs-t-border{border-radius:0.3rem;border-color:#e0e0e0;}* {
 	box-sizing: border-box;
 }
@@ -170,4 +171,178 @@ body {
 	margin-top: 30px;
 	margin-left: auto;
 	margin-right: auto;
+=======
+* { box-sizing: border-box; } body {margin: 0;}:root{--gjs-t-color-primary:#cf549e;--gjs-t-color-secondary:#b9227d;--gjs-t-color-accent:#ffb347;--gjs-t-color-success:#28a745;--gjs-t-color-warning:#ffc107;--gjs-t-color-error:#dc3545;}body{background-color:#e7e7e7;font-family:system-ui, sans-serif;margin:0;}.head{padding:50px 50px 35px;}.logo{height:50px;display:block;margin:0 auto;}.card{max-width:700px;padding:40px 45px;background-color:white;border-radius:15px;margin:0 auto;}.title{margin:0;text-align:center;}.gjs-t-body{background-color:inherit;color:inherit;font-size:1rem;line-height:1.75rem;}.subtitle{text-align:center;margin:0;padding:25px 0;}.paragraph{line-height:1.5;margin-bottom:40px;}.link{color:#af4e8a;text-decoration:none;font-size:13px;}.footer{margin-top:30px;text-align:center;}.gjs-t-h1{color:var(--gjs-t-color-secondary);font-size:1.5rem;line-height:2.5rem;}.button{display:block;padding:0.5rem 1rem;text-decoration:none;text-align:center;border-width:0;}.gjs-t-h2{color:#601843;font-size:1.2rem;line-height:1.75rem;}.gjs-t-button{background-color:var(--gjs-t-color-primary);color:white;border-radius:0.3rem;}.gjs-t-link{color:var(--gjs-t-color-primary);text-decoration:underline;}.gjs-t-border{border-radius:0.3rem;border-color:#e0e0e0;}*{box-sizing:border-box;}.gjs-t-body{background-color:inherit;color:inherit;font-size:1rem;line-height:1.75rem;}.gjs-t-h1{color:var(--gjs-t-color-secondary);font-size:1.5rem;line-height:2.5rem;}.gjs-plg-flex-column{flex-grow:1;}.gjs-plg-flex-row{display:flex;align-items:stretch;flex-wrap:nowrap;}.gjs-t-h2{color:#601843;font-size:1.2rem;line-height:1.75rem;}#imala{gap:2%;margin-top:2rem;}#itx03{flex-basis:49%;}#i5gkt{flex-basis:49%;}.gjs-t-button{background-color:var(--gjs-t-color-primary);color:white;border-radius:0.3rem;}#i61fu{height:200px;}.gjs-t-link{color:var(--gjs-t-color-primary);text-decoration:underline;}.gjs-t-border{border-radius:0.3rem;border-color:#e0e0e0;}* {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+}
+
+:root {
+	--gjs-t-color-primary: #cf549e;
+	--gjs-t-color-secondary: #b9227d;
+	--gjs-t-color-accent: #ffb347;
+	--gjs-t-color-success: #28a745;
+	--gjs-t-color-warning: #ffc107;
+	--gjs-t-color-error: #dc3545;
+}
+
+body {
+	background-color: #e7e7e7;
+	font-family: system-ui, sans-serif;
+	margin: 0;
+}
+
+.head {
+	padding: 50px 50px 35px;
+}
+
+.logo {
+	height: 50px;
+	display: block;
+	margin: 0 auto;
+}
+
+.card {
+	max-width: 700px;
+	padding: 40px 45px;
+	background-color: white;
+	border-radius: 15px;
+	margin: 0 auto;
+}
+
+.title {
+	margin: 0;
+	text-align: center;
+}
+
+.gjs-t-body {
+	background-color: inherit;
+	color: inherit;
+	font-size: 1rem;
+	line-height: 1.75rem;
+}
+
+.subtitle {
+	text-align: center;
+	margin: 0;
+	padding: 25px 0;
+}
+
+.footer {
+	margin-top: 30px;
+	text-align: center;
+}
+
+.gjs-t-h1 {
+	color: var(--gjs-t-color-secondary);
+	font-size: 1.5rem;
+	line-height: 2.5rem;
+}
+
+.button {
+	display: block;
+	padding: 0.5rem 1rem;
+	text-decoration: none;
+	text-align: center;
+	border-width: 0;
+}
+
+.gjs-t-h2 {
+	color: #601843;
+	font-size: 1.2rem;
+	line-height: 1.75rem;
+}
+
+.gjs-t-button {
+	background-color: var(--gjs-t-color-primary);
+	color: white;
+	border-radius: 0.3rem;
+}
+
+.gjs-t-link {
+	color: var(--gjs-t-color-primary);
+	text-decoration: underline;
+}
+
+.gjs-t-border {
+	border-radius: 0.3rem;
+	border-color: #e0e0e0;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+.gjs-t-body {
+	background-color: inherit;
+	color: inherit;
+	font-size: 1rem;
+	line-height: 1.75rem;
+}
+
+.gjs-t-h1 {
+	color: var(--gjs-t-color-secondary);
+	font-size: 1.5rem;
+	line-height: 2.5rem;
+}
+
+.gjs-plg-flex-column {
+	flex-grow: 1;
+}
+
+.gjs-plg-flex-row {
+	display: flex;
+	align-items: stretch;
+	flex-wrap: nowrap;
+}
+
+.gjs-t-h2 {
+	color: #601843;
+	font-size: 1.2rem;
+	line-height: 1.75rem;
+}
+
+#imala {
+	gap: 2%;
+	margin-top: 2rem;
+}
+
+#itx03 {
+	flex-basis: 49%;
+}
+
+#i5gkt {
+	flex-basis: 49%;
+}
+
+.gjs-t-button {
+	background-color: var(--gjs-t-color-primary);
+	color: white;
+	border-radius: 0.3rem;
+}
+
+#i61fu {
+	height: 200px;
+}
+
+#inlu {
+	display: block;
+}
+
+#idj18 {
+	color: black;
+	width: 149px;
+	height: 110px;
+	position: static;
+	top: 0px;
+	bottom: 0px;
+	display: block;
+	margin-bottom: 0px;
+	margin-top: 30px;
+	margin-left: auto;
+	margin-right: auto;
+>>>>>>> 21ac72141b9780693265b1634dfc8422140931c8
 }
