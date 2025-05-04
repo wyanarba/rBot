@@ -169,7 +169,7 @@ bool getConfig(string confName) {
                 BotKey = value;
             else if (parameter == "RootTgId")
                 RootTgId = stoll(value);
-            else if (parameter == "GroupId" && GroupsForSpam.size() < 21)
+            else if (parameter == "GroupId" && GroupsForSpam.size() < 31)
                 GroupsForSpam.push_back(stoll(value));
             else if (parameter == "Mode")
                 ModeSend = value == "1";
@@ -292,10 +292,13 @@ void updateV2() {
                 int countG = 0, localCount = 0;//кол-во групп 1, кол-во групп 2
 
                 for (auto& mPage : corp.pages) {
-                    if (!mPage.isEmpty)
-                        for (auto& group : mPage.groups)
-                            if (group.isExists)
+                    if (!mPage.isEmpty) {
+                        for (int i = 0; i < mPage.groups.size(); i++)
+                            if (mPage.groups[i].isExists && !rb::DisabledGroups[i])
                                 countG++;
+
+                        countG++;
+                    }
                 }
 
                 countG = countG / GroupsForSpam.size() + 1;
@@ -314,7 +317,7 @@ void updateV2() {
                         {
                             auto& group = mPage.groups[i];
 
-                            if (group.isExists) {
+                            if (group.isExists && !rb::DisabledGroups[i]) {
                                 localCount++;
                                 group.idSpam = (localCount / countG) % GroupsForSpam.size();
 
@@ -434,7 +437,7 @@ void updateV2() {
                         {
                             auto& group = mPage.groups[i];
 
-                            if (group.isExists) {
+                            if (group.isExists && !rb::DisabledGroups[i]) {
                                 bot.getApi().deleteMessage(GroupsForSpam[group.idSpam], group.messageId);
 
                                 if (mPage.IsNewPage || group.changed)
@@ -876,7 +879,7 @@ int main() {
             }
         }
 
-        ifstream ifs("4\\t.txt");
+        ifstream ifs(rb::imgPath + "4\\t.txt");
         while (getline(ifs, currentFile)) {
             rb::AllTeachers.insert(currentFile);
         }
@@ -1306,7 +1309,8 @@ int main() {
                                         }
 
                                         if(!is_sanded)
-                                            bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile(rb::imgPath + to_string(corp.pagesUse - 1) + ".png", "image/png"));
+                                            bot.getApi().sendPhoto(userId, 
+                                                TgBot::InputFile::fromFile(rb::imgPath + to_string(corp.pagesUse - 1 + corp.localOffset * rb::pagesInBui) + ".png", "image/png"));
                                     }
                                 }
                                 else if (isNormalCommand)
@@ -1410,7 +1414,7 @@ int main() {
                             if(commandParam == "1")
                                 bot.getApi().sendDocument(userId, TgBot::InputFile::fromFile("..\\system.txt", "text/plain"));
                             else if (commandParam == "2")
-                                bot.getApi().sendDocument(userId, TgBot::InputFile::fromFile("4\\t.txt", "text/plain"));
+                                bot.getApi().sendDocument(userId, TgBot::InputFile::fromFile(rb::imgPath + "4\\t.txt", "text/plain"));
                             else if (commandParam == "3")
                                 bot.getApi().sendDocument(userId, TgBot::InputFile::fromFile("..\\spamText.txt", "text/plain"));
                             else if (commandParam == "4")
@@ -1659,6 +1663,7 @@ int main() {
                             bot.getApi().sendMessage(userId, "Клавиатура удалена\n\nЧто бы вернуть пропишите /start", false, 0, removeKeyboard);
                         }
                         else if (message->text.find("/update") == 0 && (userId == RootTgId || userId == SecondRootTgId)) {
+                            bot.getApi().sendMessage(userId, "Готово", false, 0, NULL);
                             tryesChek = 0;
                         }
                         else if (message->text == "/start");
@@ -1760,7 +1765,8 @@ int main() {
                             tUher->group = -1;
                             saveUsers();
                             for (auto &corp : rb::corpss) {
-                                bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile(rb::imgPath + to_string(corp.pagesUse - 1) + ".png", "image/png"));
+                                bot.getApi().sendPhoto(userId, 
+                                    TgBot::InputFile::fromFile(rb::imgPath + to_string(corp.pagesUse - 1 + corp.localOffset * rb::pagesInBui) + ".png", "image/png"));
                             }
                         }
                     }
@@ -1846,7 +1852,8 @@ int main() {
                     else if (message->text == "Получить общее расписание") {
 
                         for (auto &corp : rb::corpss) {
-                            bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile(rb::imgPath + to_string(corp.pagesUse - 1) + ".png", "image/png"));
+                            bot.getApi().sendPhoto(userId, 
+                                TgBot::InputFile::fromFile(rb::imgPath + to_string(corp.pagesUse - 1 + corp.localOffset * rb::pagesInBui) + ".png", "image/png"));
                         }
                     }
                     else if (message->text == "Получить расписание преподавателя") {
@@ -1901,7 +1908,8 @@ int main() {
                             saveUsers();
 
                             for (auto &corp : rb::corpss) {
-                                bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile(rb::imgPath + to_string(corp.pagesUse - 1) + ".png", "image/png"));
+                                bot.getApi().sendPhoto(userId, 
+                                    TgBot::InputFile::fromFile(rb::imgPath + to_string(corp.pagesUse - 1 + corp.localOffset * rb::pagesInBui) + ".png", "image/png"));
                             }
                         }
                         bot.getApi().sendMessage(userId, "Вы подписались на расписание.", false, 0, mainMenuKeyboard);

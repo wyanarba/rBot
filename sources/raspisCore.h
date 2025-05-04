@@ -1,8 +1,8 @@
 #pragma once
 //123
 
-const string CurrentVers = "v3.0_alpha";
-const string version = CurrentVers + " (27.04.2024) автообнова!";
+const string CurrentVers = "v3.0";
+const string version = CurrentVers + " (04.05.2024) 10 страниц??";
 
 string FirstUrl = "https://rasp.vksit.ru/";
 //https://wyanarba.github.io/rBot/
@@ -821,7 +821,7 @@ void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
     }
 
     //запись учителей
-    std::ofstream outputFile("4\\t.txt");
+    std::ofstream outputFile(rb::imgPath + "4\\t.txt");
     for (const string& tea : rb::AllTeachers) {
         outputFile << tea << '\n';
     }
