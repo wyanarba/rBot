@@ -1,24 +1,8 @@
 #pragma once
 //123
 
-<<<<<<< HEAD
-const string CurrentVers = "v2.3.3";
-const string version = CurrentVers + " (27.04.2024) автообнова!";
-
-string FirstUrl = "https://rasp.vksit.ru/spo.pdf";
-string SecondUrl = "https://rasp.vksit.ru/npo.pdf";
-//https://wyanarba.github.io/rBot/
-string FirstDownloadFile = "spo.pdf";
-string SecondDownloadFile = "npo.pdf";
-string FirstCommand = "magick -density 400 " + FirstDownloadFile + "[0] -background white -flatten -quality 100 1.png";
-string SecondCommand = "magick -density 400 " + SecondDownloadFile + "[0] -background white -flatten -quality 100 2.png";
-string ThirdCommand = "magick -density 400 " + FirstDownloadFile + "[1] -background white -flatten -quality 100 1.png";
-string FourthCommand = "magick -density 400 " + SecondDownloadFile + "[1] -background white -flatten -quality 100 2.png";
-string ThirdCommand2 = "magick -density 400 " + FirstDownloadFile + "[0] -background white -flatten -quality 100 3.png";
-string FourthCommand2 = "magick -density 400 " + SecondDownloadFile + "[0] -background white -flatten -quality 100 4.png";
-=======
-const string CurrentVers = "v3.2";
-const string version = CurrentVers + " (04.05.2024) 10 страниц??";
+const string CurrentVers = "v3.0.1";
+const string version = CurrentVers + " (05.05.2024) 10 страниц??";
 
 string FirstUrl = "https://rasp.vksit.ru/";
 //https://wyanarba.github.io/rBot/
@@ -30,7 +14,6 @@ string FirstUrl = "https://rasp.vksit.ru/";
 //string FourthCommand = "magick -density 400 " + SecondDownloadFile + "[1] -background white -flatten -quality 100 2.png";
 //string ThirdCommand2 = "magick -density 400 " + FirstDownloadFile + "[0] -background white -flatten -quality 100 3.png";
 //string FourthCommand2 = "magick -density 400 " + SecondDownloadFile + "[0] -background white -flatten -quality 100 4.png";
->>>>>>> 21ac72141b9780693265b1634dfc8422140931c8
 const char update_command[17] = "start update.bat";
 
 DWORD SleepTime = 60000;
@@ -43,97 +26,20 @@ string newVersion;
 
 int cutsOffX = 0, cutsOffY = 0, leftEdge = 0;
 
-<<<<<<< HEAD
-string LastFileD[2], FileD[2];//файлы .pdf с расписанием
-
-void postRaspis() {
-    mtx1.lock();//отправляем сообщение боту и ожидаем завершения отправки расписания
-    syncMode = 3;
-    mtx1.unlock();
-=======
 string FileD;//файлы .pdf с расписанием
 
 void postRaspis() {
     rb::mtx1.lock();//отправляем сообщение боту и ожидаем завершения отправки расписания
     rb::syncMode = 3;
     rb::mtx1.unlock();
->>>>>>> 21ac72141b9780693265b1634dfc8422140931c8
 
     bool wait = 1;
 
     while (wait) {
         this_thread::sleep_for(300ms);
-<<<<<<< HEAD
-        mtx1.lock();
-        wait = syncMode != 0;
-        mtx1.unlock();
-    }
-
-    //возрат
-    for (int i = 0; i < Groups.size(); i++)
-        if (GroupsB[ModeS][i].isExists2 == 1)
-            GroupsB[ModeS][i].isExists = 1;
-
-    if (Mode > 2) {
-        for (int i = 0; i < Groups.size(); i++)
-            if (GroupsB[ModeVs][i].isExists2 == 1)
-                GroupsB[ModeVs][i].isExists = 1;
-    }
-}
-
-void prePostRaspis(int mode) {//подготовка к обработке нового расписания
-    mtx1.lock();//приостанавливаем бота
-
-    syncMode = 1;
-    bool wait = 1;
-
-    mtx1.unlock();
-
-    while (wait) {
-        this_thread::sleep_for(100ms);
-        mtx1.lock();
-        wait = syncMode != 2;
-        mtx1.unlock();
-    }
-
-    //зачистка переменных
-    Mode = mode;
-    ModeS = mode - 1;
-    ModeVs = mode - 3;
-
-    ModeStr = to_string(mode);
-    AltModeStr = to_string(mode - 2);
-
-    IsNewRaspis[0] = 1;
-    IsNewRaspis[1] = 1;
-
-    Teachers[ModeS].clear();
-    if (Mode > 2) Teachers[ModeVs].clear();
-
-    ErrorOnCore = 0;
-
-    //зачистка состояния файлов
-    if (Mode > 2) {
-        for (int i = 0; i < Groups.size(); i++) {
-            GroupsB[ModeS][i] = 0;
-            GroupsB[ModeVs][i] = 0;
-            GroupsB[ModeS][i].isExists2 = 0;
-            GroupsB[ModeVs][i].isExists2 = 0;
-            AltGroupsB[0][i] = 0;
-            AltGroupsB[1][i] = 0;
-        }
-    }
-    else {
-        for (int i = 0; i < Groups.size(); i++) {
-            GroupsB[ModeS][i] = 0;
-            GroupsB[ModeS][i].isExists2 = 0;
-            AltGroupsB[0][i] = 0;
-        }
-=======
         rb::mtx1.lock();
         wait = rb::syncMode != 0;
         rb::mtx1.unlock();
->>>>>>> 21ac72141b9780693265b1634dfc8422140931c8
     }
 }
 
@@ -285,15 +191,9 @@ void editRaspis(string filePath) {
     leftEdge = margin;
 }
 
-<<<<<<< HEAD
-void getLocalRaspis(int iteratorQ, int pageNumber, string pdf_path) {
-
-    string imageName = to_string(iteratorQ + 1) + ".png", folderToSave = to_string(iteratorQ + 1) + "\\";
-=======
 void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
 
     string imageName = rb::imgPath + mPage.folderName + ".png", folderToSave = rb::imgPath + mPage.folderName + "\\";
->>>>>>> 21ac72141b9780693265b1634dfc8422140931c8
 
     set <string>spamText, lastGroups;//преподаватели и изменённые группы
     map <string, Mat>teachers;//картинки преподов
@@ -304,12 +204,8 @@ void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
     const float coof = 5.5563;//коэффициент для перевода координат pdf в пиксели изображения5.5563
     bool isNewFile = 1;//полностью ли изменилось расписание
     unique_ptr<document> doc(document::load_from_file(pdf_path));// Загружаем PDF-документ
-<<<<<<< HEAD
-    poppler::page* page = doc->create_page(pageNumber);
-=======
     poppler::page* page = NULL;
     page = doc->create_page(pageNum);
->>>>>>> 21ac72141b9780693265b1634dfc8422140931c8
     Mat timeImage;
     int padding = 0;//отступы в маленькой версии картинки
     int padding1 = 0;//отступы между датой в маленькой версии картинки
@@ -540,14 +436,7 @@ void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
         else
             logMessage("Не большое изменение", "system");
 
-<<<<<<< HEAD
-        if (iteratorQ < 2)
-            IsNewRaspis[0] = isNewFile;
-        else
-            IsNewRaspis[1] = isNewFile;
-=======
         mPage.IsNewPage = isNewFile;
->>>>>>> 21ac72141b9780693265b1634dfc8422140931c8
 
 
         if (isNewFile) {
@@ -779,53 +668,21 @@ void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
 
                         // Сравниваем каждый канал
                         if (result.size() != sImageLast.size() || cv::countNonZero(channels1[0] != channels2[0]) != 0) {
-<<<<<<< HEAD
-                            int i;
-                            for (i = 0; i < Groups.size(); i++) {
-                                if (Groups[i] == text) {
-                                    if (iteratorQ < 2)
-                                        AltGroupsB[0][i] = 1;
-                                    else
-                                        AltGroupsB[1][i] = 1;
-
-                                    i = Groups.size() + 10;
-                                }
-
-                            }
-                            if (i == Groups.size()) {
-=======
                             int groupId = findGroup(text);
                             if (groupId != -1) {
                                 mPage.groups[groupId].changed = 1;
                             }
                             else {
->>>>>>> 21ac72141b9780693265b1634dfc8422140931c8
                                 logMessage("Неожиданная группа " + text, "system");
                             }
                         }
                     }
                     else {
-<<<<<<< HEAD
-                        int i;
-                        for (i = 0; i < Groups.size(); i++) {
-                            if (Groups[i] == text) {
-
-                                if (iteratorQ < 2)
-                                    AltGroupsB[0][i] = 1;
-                                else
-                                    AltGroupsB[1][i] = 1;
-
-                                i = Groups.size() + 10;
-                            }
-                        }
-                        if (i == Groups.size()) {
-=======
                         int groupId = findGroup(text);
                         if (groupId != -1) {
                             mPage.groups[groupId].changed = 1;
                         }
                         else {
->>>>>>> 21ac72141b9780693265b1634dfc8422140931c8
                             logMessage("Неожиданная группа " + text, "system");
                         }
                     }
@@ -835,23 +692,11 @@ void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
                     logMessage("Не удалось записать файл " + text, "system");
 
                 if (cv::imwrite(folderToSave + Utf8_to_cp1251(text.c_str()) + ".png", tempImage)) {
-<<<<<<< HEAD
-                    int i = 0;
-                    for (; i < Groups.size(); i++) {
-                        //cout << text << ",2 " << Groups[i] << endl;
-                        if (Groups[i] == text) {
-                            GroupsB[iteratorQ][i] = 1;
-                            i = Groups.size() + 10;
-                        }
-                    }
-                    if (i == Groups.size()) {
-=======
                     int groupId = findGroup(text);
                     if (groupId != -1) {
                         mPage.groups[groupId] = 1;
                     }
                     else {
->>>>>>> 21ac72141b9780693265b1634dfc8422140931c8
                         logMessage("Неожиданная группа " + text, "system");
                     }
                 }
@@ -966,24 +811,11 @@ void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
     //сохранение картинок с преподавателями
     for (auto& teacher : teachers) {
         if (cv::imwrite(folderToSave + Utf8_to_cp1251(teacher.first.c_str()) + ".png", teacher.second))
-<<<<<<< HEAD
-            Teachers[iteratorQ].insert(teacher.first);
-=======
             mPage.Teachers.insert(teacher.first);
->>>>>>> 21ac72141b9780693265b1634dfc8422140931c8
         else {
             logMessage("Не удалось записать файл " + teacher.first, "system");
         }
 
-<<<<<<< HEAD
-        if (DefTeachers.find(teacher.first) == DefTeachers.end())
-            DefTeachers.insert(teacher.first);
-    }
-
-    //запись учителей
-    std::ofstream outputFile("4\\t.txt");
-    for (const string& tea : DefTeachers) {
-=======
         if (rb::AllTeachers.find(teacher.first) == rb::AllTeachers.end())
             rb::AllTeachers.insert(teacher.first);
     }
@@ -991,24 +823,10 @@ void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
     //запись учителей
     std::ofstream outputFile(rb::imgPath + "4\\t.txt");
     for (const string& tea : rb::AllTeachers) {
->>>>>>> 21ac72141b9780693265b1634dfc8422140931c8
         outputFile << tea << '\n';
     }
     outputFile.close();  // Закрываем файл
 
-<<<<<<< HEAD
-    //запись фамилий
-    DisabledGroupsC = 0;//хотел бы я нормально учитывать субботу, но это того не стоит(
-    for (int i = 0; i < Groups.size(); i++) {
-        if (!DisabledGroups[i] && GroupsB[iteratorQ][i].isExists) {
-            DisabledGroupsC++;
-            GroupsB[iteratorQ][i].isExists = 0;
-            GroupsB[iteratorQ][i].isExists2 = 1;
-        }
-    }
-
-=======
->>>>>>> 21ac72141b9780693265b1634dfc8422140931c8
     //добавление рекламы
     if (EnableAd) {
         Mat adImg = imread("..\\imgs\\ad.png");
@@ -1035,256 +853,44 @@ void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
 void main2() {
     try
     {
-<<<<<<< HEAD
-        ReadStringFromFile(FirstDownloadFile, LastFileD[0]);
-        ReadStringFromFile(SecondDownloadFile, LastFileD[1]);
-
-        while (true) {
-            if (DownloadFileToMemory(FirstUrl, FileD[0]) && DownloadFileToMemory(SecondUrl, FileD[1])) {
-
-                //проверка на соответствие файла 1
-                if (FileD[0] != LastFileD[0]) {
-                    logMessage("Начало обработки нового расписания, 1-ый корпус", "system", 112);
-
-                    //копирование файла
-                    WriteStringToFile(FileD[0], FirstDownloadFile);
-                    LastFileD[0] = FileD[0];
-
-                    int pageCount = getPDFPageCount(FirstDownloadFile);
-                    if (pageCount == 1) {
-                        //подготовка к обработке нового расписания
-                        prePostRaspis(1);
-
-                        //конвертирование в png
-                        system(FirstCommand.c_str());
-
-                        //обрезка фото
-                        try
-                        {
-                            editRaspis("1.png");
-                            getLocalRaspis(0, 0, FirstDownloadFile);
-=======
         for (corps &corp : rb::corpss) {
             ReadStringFromFile(corp.pdfFileName, corp.LastFileD);
         }
 
         while (true) {
 
-            // Обновление расписания
-            for (corps& corp : rb::corpss) {
-                if (!DownloadFileToMemory(FirstUrl + corp.pdfFileName, FileD)) {
-                    logMessage("Не удалось скачать файл с расписанием", "system", 120);
-                    continue;
-                }
-                
-                if (FileD != corp.LastFileD) {
-                    logMessage("Начало обработки нового расписания, " + to_string(corp.localOffset + 1) + " корпус", "system", 112);
+            try {
+                // Обновление расписания
+                for (corps& corp : rb::corpss) {
+                    if (!DownloadFileToMemory(FirstUrl + corp.pdfFileName, FileD)) {
+                        logMessage("Не удалось скачать файл с расписанием", "system", 120);
+                        continue;
+                    }
 
-                    WriteStringToFile(FileD, corp.pdfFileName);
-                    corp.LastFileD = FileD;
+                    if (FileD != corp.LastFileD) {
+                        logMessage("Начало обработки нового расписания, " + to_string(corp.localOffset + 1) + " корпус", "system", 112);
 
-                    int pageCount = getPDFPageCount(corp.pdfFileName);
-                    
-                    if(pageCount > rb::pagesInBui)
-                        logMessage("Больше максималки страниц, impossible", "system", 112);
+                        WriteStringToFile(FileD, corp.pdfFileName);
+                        corp.LastFileD = FileD;
 
-                    //приостанавливаем бота
-                    {
-                        rb::mtx1.lock();
+                        int pageCount = getPDFPageCount(corp.pdfFileName);
 
-                        rb::syncMode = 1;
-                        bool wait = 1;
+                        if (pageCount > rb::pagesInBui)
+                            logMessage("Больше максималки страниц, impossible", "system", 112);
 
-                        rb::mtx1.unlock();
-
-                        while (wait) {
-                            this_thread::sleep_for(100ms);
-                            rb::mtx1.lock();
-                            wait = rb::syncMode != 2;
-                            rb::mtx1.unlock();
+                        for (int i = pageCount; i < rb::pagesInBui * (corp.localOffset + 1); i++) {
+                            for (const auto& entry : std::filesystem::directory_iterator(rb::imgPath + to_string(i))) {
+                                if (entry.is_regular_file()) {
+                                    std::filesystem::remove(entry.path());
+                                }
+                            }
                         }
-                    }
 
-                    // зачистка переменных корпуса
-                    {
-                        corp.pagesUse = 0;
-
-                        for (auto& page : corp.pages)
-                            page.clear();
-
-                        rb::ErrorOnCore = 0;
-                    }
-
-                    for (int i = 0; i < pageCount && i < rb::pagesInBui; i++) {
-                        auto& page = corp.pages[i];
-                        page.isEmpty = 0;
-                        corp.pagesUse++;
-
-                        system(std::format("magick -density 400 {}[{}] -background white -flatten -quality 100 {}.png",
-                            corp.pdfFileName, i, rb::imgPath + page.folderName).c_str());
                         
-                        //обрезка фото
-                        try
+
+                        //приостанавливаем бота
                         {
-                            editRaspis(rb::imgPath + page.folderName + ".png");
-                            getLocalRaspis(page, corp.pdfFileName, i);
->>>>>>> 21ac72141b9780693265b1634dfc8422140931c8
-                        }
-                        catch (const std::exception& e)
-                        {
-                            logMessage("Какой ужас! Скинь мне это tg: @wyanarba EROR: гет локалраспис | " + (string)e.what(), "system", 113);
-<<<<<<< HEAD
-                            ErrorOnCore = 1;
-                        }
-                    }
-                    else if (pageCount == 2) {
-                        //подготовка к обработке нового расписания
-                        prePostRaspis(3);
-
-                        //конвертирование в png
-                        system(ThirdCommand2.c_str());
-                        system(ThirdCommand.c_str());
-
-                        //обрезка фото
-                        try
-                        {
-                            editRaspis("1.png");
-                            getLocalRaspis(0, 1, FirstDownloadFile);
-                            editRaspis("3.png");
-                            getLocalRaspis(2, 0, FirstDownloadFile);
-                        }
-                        catch (const std::exception& e)
-                        {
-                            logMessage("Какой ужас! Скинь мне это tg: @wyanarba EROR: гет локалраспис | " + (string)e.what(), "system", 114);
-                            ErrorOnCore = 1;
-=======
-                            rb::ErrorOnCore = 1;
->>>>>>> 21ac72141b9780693265b1634dfc8422140931c8
-                        }
-                    }
-
-                    //рассылка
-<<<<<<< HEAD
-                    postRaspis();
-
-                    logMessage("Конец обработки нового расписания", "system", 115);
-                }
-
-                //проверка на соответствие файла 2
-                if (FileD[1] != LastFileD[1]) {
-                    logMessage("Начало обработки нового расписания, 2-ой корпус", "system", 116);
-
-                    //копирование файла
-                    WriteStringToFile(FileD[1], SecondDownloadFile);
-                    LastFileD[1] = FileD[1];
-
-                    int pageCount = getPDFPageCount(SecondDownloadFile);
-                    if (pageCount == 1) {
-                        //подготовка к обработке нового расписания
-                        prePostRaspis(2);
-
-                        //конвертирование в png
-                        system(SecondCommand.c_str());
-
-                        //обрезка фото
-                        try
-                        {
-                            editRaspis("2.png");
-                            getLocalRaspis(1, 0, SecondDownloadFile);
-                        }
-                        catch (const std::exception& e)
-                        {
-                            logMessage("Какой ужас! Скинь мне это tg: @wyanarba EROR: гет локалраспис | " + (string)e.what(), "system", 117);
-                            ErrorOnCore = 1;
-                        }
-                    }
-                    else if (pageCount == 2) {
-                        //подготовка к обработке нового расписания
-                        prePostRaspis(4);
-
-                        //конвертирование в png
-                        system(FourthCommand2.c_str());
-                        system(FourthCommand.c_str());
-
-                        //обрезка фото
-                        try
-                        {
-                            editRaspis("2.png");
-                            getLocalRaspis(1, 1, SecondDownloadFile);
-                            editRaspis("4.png");
-                            getLocalRaspis(3, 0, SecondDownloadFile);
-                        }
-                        catch (const std::exception& e)
-                        {
-                            logMessage("Какой ужас! Скинь мне это tg: @wyanarba EROR: гет локалраспис | " + (string)e.what(), "system", 118);
-                            ErrorOnCore = 1;
-                        }
-                    }
-
-                    //рассылка
-                    postRaspis();
-                }
-
-            }
-            else {
-                logMessage("Не удалось скачать файл с расписанием", "system", 120);
-            }
-
-
-            if (EnableAutoUpdate && tryesChek == 0)//чек обновы
-            {
-                if (DownloadFileToMemory("https://wyanarba.github.io/rBot/", newVersion) && newVersion.size() < 8) {
-                    if (newVersion != CurrentVers) {
-                        logMessage("Обнова!!! " + CurrentVers + " -> " + newVersion, "system");
-
-                        isUpdate = 1;
-                        mtx1.lock();//приостанавливаем бота
-
-                        syncMode = 1;
-                        bool wait = 1;
-
-                        mtx1.unlock();
-
-                        while (wait) {
-                            this_thread::sleep_for(100ms);
-                            mtx1.lock();
-                            wait = syncMode != 2;
-                            mtx1.unlock();
-                        }
-
-                        system(update_command);
-                        exit(0);
-                    }
-                    tryesChek++;
-                }
-                else {
-                    logMessage("Не удалось скачать версию", "system", 121);
-                }
-            }
-            else if (tryesChek < 10) {
-                tryesChek++;
-            }
-            else if (tryesChek == 10) {
-                tryesChek = 0;
-            }
-=======
-                    rb::currentCorps = corp.localOffset;
-                    postRaspis();
-                    logMessage("Конец обработки нового расписания", "system", 115);
-                }
-
-            }
-
-            // Поиск обновы
-            {
-                if (EnableAutoUpdate && tryesChek == 0)//чек обновы
-                {
-                    if (DownloadFileToMemory("https://wyanarba.github.io/rBot/", newVersion) && newVersion.size() < 8) {
-                        if (newVersion != CurrentVers) {
-                            logMessage("Обнова!!! " + CurrentVers + " -> " + newVersion, "system");
-
-                            isUpdate = 1;
-                            rb::mtx1.lock();//приостанавливаем бота
+                            rb::mtx1.lock();
 
                             rb::syncMode = 1;
                             bool wait = 1;
@@ -1297,25 +903,92 @@ void main2() {
                                 wait = rb::syncMode != 2;
                                 rb::mtx1.unlock();
                             }
-
-                            system(update_command);
-                            exit(0);
                         }
+
+                        // зачистка переменных корпуса
+                        {
+                            corp.pagesUse = 0;
+
+                            for (auto& page : corp.pages)
+                                page.clear();
+
+                            rb::ErrorOnCore = 0;
+                        }
+
+                        for (int i = 0; i < pageCount && i < rb::pagesInBui; i++) {
+                            auto& page = corp.pages[i];
+                            page.isEmpty = 0;
+                            corp.pagesUse++;
+
+                            system(std::format("magick -density 400 {}[{}] -background white -flatten -quality 100 {}.png",
+                                corp.pdfFileName, i, rb::imgPath + page.folderName).c_str());
+
+                            //обрезка фото
+                            try
+                            {
+                                editRaspis(rb::imgPath + page.folderName + ".png");
+                                getLocalRaspis(page, corp.pdfFileName, i);
+                            }
+                            catch (const std::exception& e)
+                            {
+                                logMessage("Какой ужас! Скинь мне это tg: @wyanarba EROR: гет локалраспис | " + (string)e.what(), "system", 113);
+                                rb::ErrorOnCore = 1;
+                            }
+                        }
+
+                        //рассылка
+                        rb::currentCorps = corp.localOffset;
+                        postRaspis();
+                        logMessage("Конец обработки нового расписания", "system", 115);
+                    }
+
+                }
+
+                // Поиск обновы
+                {
+                    if (EnableAutoUpdate && tryesChek == 0)//чек обновы
+                    {
+                        if (DownloadFileToMemory("https://wyanarba.github.io/rBot/", newVersion) && newVersion.size() < 8) {
+                            if (newVersion != CurrentVers) {
+                                logMessage("Обнова!!! " + CurrentVers + " -> " + newVersion, "system");
+
+                                isUpdate = 1;
+                                rb::mtx1.lock();//приостанавливаем бота
+
+                                rb::syncMode = 1;
+                                bool wait = 1;
+
+                                rb::mtx1.unlock();
+
+                                while (wait) {
+                                    this_thread::sleep_for(100ms);
+                                    rb::mtx1.lock();
+                                    wait = rb::syncMode != 2;
+                                    rb::mtx1.unlock();
+                                }
+
+                                system(update_command);
+                                exit(0);
+                            }
+                            tryesChek++;
+                        }
+                        else {
+                            logMessage("Не удалось скачать версию", "system", 121);
+                        }
+                    }
+                    else if (tryesChek < 10) {
                         tryesChek++;
                     }
-                    else {
-                        logMessage("Не удалось скачать версию", "system", 121);
+                    else if (tryesChek == 10) {
+                        tryesChek = 0;
                     }
                 }
-                else if (tryesChek < 10) {
-                    tryesChek++;
-                }
-                else if (tryesChek == 10) {
-                    tryesChek = 0;
-                }
             }
-
->>>>>>> 21ac72141b9780693265b1634dfc8422140931c8
+            catch (const std::exception& e)
+            {
+                logMessage("css) EROR | " + (string)e.what(), "system", 121);
+            }
+            
 
             Sleep(SleepTime);
         }

@@ -30,12 +30,6 @@ using namespace cv;
 using namespace poppler;
 
 
-<<<<<<< HEAD
-struct myGroup
-{
-    bool isExists = 0;//наличие в папке
-    bool isExists2 = 0;//реальное наличие в папке
-=======
 struct myCoord
 {
     float x, y;
@@ -74,7 +68,6 @@ struct myGroup
     bool isExists = 0;//наличие в папке
     bool changed = 0;// изменилось ли расписание группы (не новый файл)
     int idSpam;// номер буферной группы
->>>>>>> 21ac72141b9780693265b1634dfc8422140931c8
     int32_t messageId = 0;//id сообщения
     int32_t messageIdS = 0;//id сообщения с мини расписанием
 
@@ -86,44 +79,6 @@ struct myGroup
     }
 };
 
-<<<<<<< HEAD
-struct myCoord
-{
-    float x, y;
-    string name;
-
-    myCoord(const float& x, const float& y, const string& name) : x(x), y(y), name(name) {}
-};
-
-vector<string> Groups = { "ДО-124", "ДО-223", "ДО-322", "ДО-421", "ИИС-124", "ИИС-223", "ИИС-322", "ИИС-421", "ИКС-124",
-"ИКС-223", "ИКС-322", "ИКС-421", "ИСП-124а", "ИСП-124ир", "ИСП-124ис", "ИСП-124п", "ИСП-124р", "ИСП-124т", "ИСП-223а",
-"ИСП-223ир", "ИСП-223ис", "ИСП-223п", "ИСП-223р", "ИСП-223т", "ИСП-322а", "ИСП-322ир", "ИСП-322ис", "ИСП-322п", "ИСП-322р",
-"ИСП-322т", "ИСП-421а", "ИСП-421ир", "ИСП-421ис", "ИСП-421п", "ИСП-421р", "ИСП-421т", "ОИБ-124", "ОИБ-223", "ОИБ-322",
-"ОИБ-421", "ОПС-124", "ОПС-223", "ОПС-322", "ОПС-421", "СИС-124", "СИС-223", "СИС-322", "СИС-421", "ТО-124", "ТО-223",
-"ТО-322", "ТО-421", "ЭСС-124", "ЭСС-223", "ЭСС-322", "ЭСС-421", "МТО-124", "МТО-223", "МТО-322", "МТО-421", "NOPE" };
-vector<string> Groups1251;
-
-
-vector<myGroup> GroupsB[4];
-vector<bool> AltGroupsB[2], DisabledGroups;//изменённые группы, отключённые группы
-set <string> Teachers[4];
-set <string> DefTeachers;
-vector<int> edgeGroups[2];//края групп для 2 режима рассылки
-
-bool IsNewRaspis[2];
-int Mode, ModeS, ModeVs;//режимы
-string ModeStr, AltModeStr;//режимы
-bool ErrorOnCore = 0;
-int DisabledGroupsC = 0;
-
-mutex mtx1, mtxForLog;//для синхронизации проверки режимов
-int8_t syncMode = 0;//переменная для синхронизации, 0 - свободный режим, 1 - ожидание остановки потока бота, 2 - подтверждение остановки потока бота, 3 - отправка расписания
-
-
-//создание логов
-void logMessage(string message, string fileName) {// без .txt
-    mtxForLog.lock();
-=======
 // страница расписания
 struct pageRasp {
     string folderName;// имя папки страницы
@@ -177,7 +132,6 @@ namespace rb {
 //создание логов
 void logMessage(string message, string fileName) {// без .txt
     rb::mtxForLog.lock();
->>>>>>> 21ac72141b9780693265b1634dfc8422140931c8
     time_t now_time = chrono::system_clock::to_time_t(chrono::system_clock::now());
 
     struct tm time_info;
@@ -187,24 +141,14 @@ void logMessage(string message, string fileName) {// без .txt
     ofstream logOfs("..\\" + fileName + ".txt", ios::app);
     logOfs << put_time(&time_info, "[%Y-%m-%d | %H:%M:%S] ") << message << '\n';
     logOfs.close();
-<<<<<<< HEAD
-    mtxForLog.unlock();
-
-    if (fileName == "system")
-=======
     rb::mtxForLog.unlock();
 
     if(fileName == "system")
->>>>>>> 21ac72141b9780693265b1634dfc8422140931c8
         cout << "(" + fileName + ") " << put_time(&time_info, "[%Y-%m-%d | %H:%M:%S] ") << message << '\n';
 }
 
 void logMessage(string message, string fileName, int num) {// без .txt
-<<<<<<< HEAD
-    mtxForLog.lock();
-=======
     rb::mtxForLog.lock();
->>>>>>> 21ac72141b9780693265b1634dfc8422140931c8
     time_t now_time = chrono::system_clock::to_time_t(chrono::system_clock::now());
 
     struct tm time_info;
@@ -214,11 +158,7 @@ void logMessage(string message, string fileName, int num) {// без .txt
     ofstream logOfs("..\\" + fileName + ".txt", ios::app);
     logOfs << put_time(&time_info, "[%Y-%m-%d | %H:%M:%S] ") << to_string(num) + ")\t" + message << '\n';
     logOfs.close();
-<<<<<<< HEAD
-    mtxForLog.unlock();
-=======
     rb::mtxForLog.unlock();
->>>>>>> 21ac72141b9780693265b1634dfc8422140931c8
 
     if (fileName != "messages")
         cout << "(" + fileName + ") " << put_time(&time_info, "[%Y-%m-%d | %H:%M:%S] (") << to_string(num) + ")\t" + message << '\n';
@@ -417,8 +357,6 @@ bool isAlreadyRunning() {
     }
 
     return false; // Программа запущена впервые
-<<<<<<< HEAD
-=======
 }
 
 int findGroup(string groupName) {
@@ -428,5 +366,4 @@ int findGroup(string groupName) {
         return -1;
     else
         return group - Groups.begin();
->>>>>>> 21ac72141b9780693265b1634dfc8422140931c8
 }
