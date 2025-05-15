@@ -1,8 +1,8 @@
 #pragma once
 //123
 
-const string CurrentVers = "v3.0.1";
-const string version = CurrentVers + " (05.05.2024) 10 страниц??";
+const string CurrentVers = "v3.1";
+const string version = CurrentVers + " (15.05.2024) свои надписи?";
 
 string FirstUrl = "https://rasp.vksit.ru/";
 //https://wyanarba.github.io/rBot/
@@ -25,6 +25,7 @@ bool isUpdate = 0;
 string newVersion;
 
 int cutsOffX = 0, cutsOffY = 0, leftEdge = 0;
+set <string>spamText;
 
 string FileD;//файлы .pdf с расписанием
 
@@ -195,18 +196,20 @@ void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
 
     string imageName = rb::imgPath + mPage.folderName + ".png", folderToSave = rb::imgPath + mPage.folderName + "\\";
 
-    set <string>spamText, lastGroups;//преподаватели и изменённые группы
+    set <string> lastGroups;//преподаватели и изменённые группы
     map <string, Mat>teachers;//картинки преподов
     vector <myCoord> t2;//имена и очества для преподавателей
     Vec3b pixel;//пиксель изображения
     Mat image, imageCoper, imageCoper2;//картинки
     vector <int> xDots[4], yDots[4], extremDotsI;// 0 - верхние левые, 1 - нижние правые, 2 - не сортированные точки, 3 - временные
-    const float coof = 5.5563;//коэффициент для перевода координат pdf в пиксели изображения5.5563
+    const float coof = 5.5563, frCoof = 0.8;//коэффициент для перевода координат pdf в пиксели изображения5.5563
     bool isNewFile = 1;//полностью ли изменилось расписание
     unique_ptr<document> doc(document::load_from_file(pdf_path));// Загружаем PDF-документ
     poppler::page* page = NULL;
     page = doc->create_page(pageNum);
-    Mat timeImage;
+    Mat timeImage, corpsNumImage;
+    string corpsNum = "err";
+
     int padding = 0;//отступы в маленькой версии картинки
     int padding1 = 0;//отступы между датой в маленькой версии картинки
 
@@ -221,15 +224,6 @@ void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
     //извлечение текста с координатами
     auto text_boxes = page->text_list();
 
-    //чтение spamText
-    {
-        ifstream ifs("spamText.txt");
-        string strForRead;
-        while (getline(ifs, strForRead)) {
-            spamText.insert(strForRead);
-        }
-        ifs.close();
-    }
 
     image = imread(imageName); // загрузка изображения
     image.copyTo(imageCoper);
@@ -482,9 +476,18 @@ void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
 
             auto dotCord = text.find_last_of(".");//время
             auto dotDopCord = text.find(".");//время
-            bool timeFinded = 0;
+            bool timeFinded = 0, corpFinded = 0;
 
-            //для преподавателй
+            //для номера корпуса
+            if (!corpFinded && text == "КОРПУС") {
+                byte_array byte_arr2 = text_boxes[dwaoijawp - 1].text().to_utf8();  // Возвращает poppler::byte_array
+                string text2(byte_arr2.data(), byte_arr2.size());
+
+                corpsNum = text2;
+                corpFinded = 1;
+            }
+
+            //для преподавателей
             if (text.size() > 5 && text1251[0] > -65 && text1251[0] < -32 && dotCord == 5 && dotDopCord == 2) {
 
                 float x1 = box.bbox().x();
@@ -557,8 +560,15 @@ void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
             padding = (xDots[1][0] - xDots[0][0]) * 0.8;
             padding1 = (xDots[1][0] - xDots[0][0]) * 2;
         }
+
+        //номер корпуса
+        int fsize = timeImage.rows * frCoof;
+        corpsNumImage = cv::Mat(timeImage.rows, timeImage.cols, CV_8UC3, cv::Scalar(255, 255, 255));
+        drawTextFT(corpsNumImage, Utf8_to_cp1251((corpsNum + " корпус").c_str()), "times.ttf", fsize, timeImage.cols / 2, timeImage.rows / 2);
     }
 
+    //костыльчик #2
+    {}
 
     //разделение
     {
@@ -635,12 +645,14 @@ void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
 
 
                 Mat cropped = image(roi1), cropped1 = image(roi);//группа, звонки
-                Size newSize(cropped.cols + cropped1.cols + 2 * padding, cropped.rows + timeImage.rows + 2 * (padding + padding1));
+                Size newSize(max(cropped.cols + cropped1.cols, timeImage.cols) + 2 * padding, cropped.rows + timeImage.rows * 2 + 2 * (padding + padding1));
+
                 Mat result(newSize, image.type(), Scalar(255, 255, 255)); // Для цветного изображения
-                cropped.copyTo(result(Rect(padding, timeImage.rows + padding1 * 2 + padding, cropped.cols, cropped.rows)));
-                cropped1.copyTo(result(Rect(cropped.cols + padding, timeImage.rows + padding1 * 2 + padding, cropped1.cols, cropped1.rows)));
-                if (cropped.cols + cropped1.cols - timeImage.cols > 0)
-                    timeImage.copyTo(result(Rect((result.cols - timeImage.cols) / 2 + padding, padding1, timeImage.cols, timeImage.rows)));
+
+                cropped.copyTo(result(Rect(padding, timeImage.rows * 2 + padding1 * 2 + padding, cropped.cols, cropped.rows)));
+                cropped1.copyTo(result(Rect(cropped.cols + padding, timeImage.rows * 2 + padding1 * 2 + padding, cropped1.cols, cropped1.rows)));
+                corpsNumImage.copyTo(result(Rect((result.cols - timeImage.cols) / 2 + padding, 0, timeImage.cols, timeImage.rows)));
+                timeImage.copyTo(result(Rect((result.cols - timeImage.cols) / 2 + padding, corpsNumImage.rows, timeImage.cols, timeImage.rows)));
 
 
 
@@ -829,7 +841,7 @@ void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
 
     //добавление рекламы
     if (EnableAd) {
-        Mat adImg = imread("..\\imgs\\ad.png");
+        Mat adImg = imread("..\\imgs\\ad.png");//   ..\\imgs\\ad.png
         if (adImg.data) {
             Mat overlay;
             int y = yDots[0][0] + (yDots[1][1] - yDots[0][0]) / 2 > adImg.rows + 10 ? yDots[0][0] + (yDots[1][1] - yDots[0][0]) / 2 - adImg.rows : 5;
@@ -848,6 +860,7 @@ void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
     //сохранение мусора ;)
     cv::imwrite(folderToSave + "coper.png", imageCoper);
     cv::imwrite(folderToSave + "coper2.png", imageCoper2);
+    cout << corpsNum;
 }
 
 void main2() {
@@ -878,11 +891,13 @@ void main2() {
                         if (pageCount > rb::pagesInBui)
                             logMessage("Больше максималки страниц, impossible", "system", 112);
 
-                        for (int i = pageCount; i < rb::pagesInBui * (corp.localOffset + 1); i++) {
+                        for (int i = pageCount + rb::pagesInBui * (corp.localOffset); i < rb::pagesInBui * (corp.localOffset + 1); i++) {
+
                             for (const auto& entry : std::filesystem::directory_iterator(rb::imgPath + to_string(i))) {
                                 if (entry.is_regular_file()) {
                                     std::filesystem::remove(entry.path());
                                 }
+
                             }
                         }
 

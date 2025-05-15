@@ -15,6 +15,7 @@
 #include <windows.h>
 #include <wininet.h>
 #include <opencv2/opencv.hpp>
+#include <freetype/freetype.h>
 #include <poppler/cpp/poppler-document.h>
 #include <poppler/cpp/poppler-page.h>
 #include <filesystem>
@@ -366,4 +367,88 @@ int findGroup(string groupName) {
         return -1;
     else
         return group - Groups.begin();
+}
+
+void drawTextFT(cv::Mat& img, const std::string& aa, const std::string& fontPath, int fontSize, int x_center, int y_center) {
+    // Конвертация из Windows-1251 в wstring
+    int size_needed = MultiByteToWideChar(1251, 0, aa.c_str(), -1, nullptr, 0);
+    std::wstring text(size_needed, 0);
+    MultiByteToWideChar(1251, 0, aa.c_str(), -1, &text[0], size_needed);
+    text.pop_back(); // удаляем null-terminator
+
+    // Инициализация FreeType
+    FT_Library ft;
+    if (FT_Init_FreeType(&ft)) {
+        std::cerr << "FT_Init_FreeType failed\n";
+        return;
+    }
+
+    FT_Face face;
+    if (FT_New_Face(ft, fontPath.c_str(), 0, &face)) {
+        std::cerr << "FT_New_Face failed\n";
+        return;
+    }
+
+    FT_Set_Pixel_Sizes(face, 0, fontSize);
+
+    // Предварительный расчёт общей ширины и максимальной высоты текста
+    int text_width = 0;
+    int text_height = 0;
+    int max_top = 0;
+    int max_bottom = 0;
+
+    for (wchar_t wc : text) {
+        if (FT_Load_Char(face, wc, FT_LOAD_RENDER)) continue;
+
+        text_width += face->glyph->advance.x >> 6;
+
+        int top = face->glyph->bitmap_top;
+        int bottom = face->glyph->bitmap.rows - face->glyph->bitmap_top;
+
+        if (top > max_top) max_top = top;
+        if (bottom > max_bottom) max_bottom = bottom;
+    }
+
+    text_height = max_top + max_bottom;
+
+    // Начальные координаты для центровки
+    int pen_x = x_center - text_width / 2;
+    int pen_y = y_center + max_top / 2;
+
+    // Отрисовка
+    for (wchar_t wc : text) {
+        if (FT_Load_Char(face, wc, FT_LOAD_RENDER)) {
+            std::wcerr << L"Failed to load char: " << wc << L"\n";
+            continue;
+        }
+
+        FT_GlyphSlot g = face->glyph;
+        int w = g->bitmap.width;
+        int h = g->bitmap.rows;
+        int top = g->bitmap_top;
+        int left = g->bitmap_left;
+
+        for (int row = 0; row < h; ++row) {
+            for (int col = 0; col < w; ++col) {
+                int x_img = pen_x + left + col;
+                int y_img = pen_y - top + row;
+                if (x_img >= 0 && y_img >= 0 && x_img < img.cols && y_img < img.rows) {
+                    uchar alpha = g->bitmap.buffer[row * g->bitmap.pitch + col];
+                    if (alpha > 0) {
+                        cv::Vec3b& pixel = img.at<cv::Vec3b>(y_img, x_img);
+                        for (int c = 0; c < 3; ++c) {
+                            pixel[c] = static_cast<uchar>(
+                                pixel[c] * (255 - alpha) / 255
+                                );
+                        }
+                    }
+                }
+            }
+        }
+
+        pen_x += g->advance.x >> 6;
+    }
+
+    FT_Done_Face(face);
+    FT_Done_FreeType(ft);
 }

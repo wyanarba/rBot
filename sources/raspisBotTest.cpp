@@ -37,9 +37,9 @@ vector<myCommand> Commands = {
     {"sub_go", "Подписаться на отдельное расписание группы"},
     {"sub_p", "Подписаться на расписание преподавателя"},
     {"t_dop", "Получать расписание и для другого корпуса"},
-    {"get_o", "Получить общее расписание"},
-    {"get_g", "Получить расписание группы"},
-    {"get_p", "Получить расписание преподавателя"},
+    {"get_o", "Посмотреть общее расписание"},
+    {"get_g", "Посмотреть расписание группы"},
+    {"get_p", "Посмотреть расписание преподавателя"},
     {"m", "Доп. подписка"},
     {"unm", "отписаться от доп. подписки"},
     {"unsubscribe", "Отписаться от расписания"}
@@ -850,6 +850,13 @@ int main() {
         for (int i = 0; i < Groups.size(); i++) {
             Groups1251.push_back(Utf8_to_cp1251(Groups[i].c_str()));
         }
+
+        ifstream ifs("..\\spamText.txt");
+        string strForRead;
+        while (getline(ifs, strForRead)) {
+            spamText.insert(strForRead);
+        }
+        ifs.close();
     }
 
     //чтение папок
@@ -995,7 +1002,7 @@ int main() {
         //
         TgBot::KeyboardButton::Ptr mainMenuButton1(new TgBot::KeyboardButton("Расписание для групп"));
         TgBot::KeyboardButton::Ptr mainMenuButton2(new TgBot::KeyboardButton("Расписание для преподавателей"));
-        TgBot::KeyboardButton::Ptr mainMenuButton3(new TgBot::KeyboardButton("Получить расписание"));
+        TgBot::KeyboardButton::Ptr mainMenuButton3(new TgBot::KeyboardButton("Посмотреть расписание"));
         TgBot::KeyboardButton::Ptr mainMenuButton4(new TgBot::KeyboardButton("Доп. подписка"));
         TgBot::KeyboardButton::Ptr mainMenuButton5(new TgBot::KeyboardButton("Подписаться на общее расписание"));
         TgBot::KeyboardButton::Ptr mainMenuButton7(new TgBot::KeyboardButton("Вопросы и предложения"));
@@ -1034,12 +1041,12 @@ int main() {
         raspisForTeacherKeyboard->keyboard.push_back({ escButton });
 
 
-        //получить расписание
+        //Посмотреть расписание
         getRaspisKeyboard->resizeKeyboard = true;
         //
-        TgBot::KeyboardButton::Ptr getRaspisButton1(new TgBot::KeyboardButton("Получить общее расписание"));
-        TgBot::KeyboardButton::Ptr getRaspisButton2(new TgBot::KeyboardButton("Получить расписание преподавателя"));
-        TgBot::KeyboardButton::Ptr getRaspisButton3(new TgBot::KeyboardButton("Получить расписание группы"));
+        TgBot::KeyboardButton::Ptr getRaspisButton1(new TgBot::KeyboardButton("Посмотреть общее расписание"));
+        TgBot::KeyboardButton::Ptr getRaspisButton2(new TgBot::KeyboardButton("Посмотреть расписание преподавателя"));
+        TgBot::KeyboardButton::Ptr getRaspisButton3(new TgBot::KeyboardButton("Посмотреть расписание группы"));
         //
         getRaspisKeyboard->keyboard.push_back({ getRaspisButton1 });
         getRaspisKeyboard->keyboard.push_back({ getRaspisButton2 });
@@ -1327,7 +1334,7 @@ int main() {
                             }
                         }
                         else if (message->text.find("/get_o") == 0) {
-                            message->text = "Получить общее расписание";
+                            message->text = "Посмотреть общее расписание";
                         }
                         else if (message->text.find("/get_p") == 0) {
                             if (commandParam != "") {
@@ -1409,7 +1416,7 @@ int main() {
                                         bot.getApi().sendMessage(userId, "Некорректный ввод, ожидалось \"/t_dop да\" или \"/t_dop нет\"", false, 0, NULL);
                                 }
                                 else {
-                                    bot.getApi().sendMessage(userId, "Пример сообщения целиком: /t_dop да\nОписание: по умолчанию вы получаете расписание обоих корпусов, если вы хотите получить расписание только своего корпуса, используйте эту команду с параметром нет", false, 0, NULL);
+                                    bot.getApi().sendMessage(userId, "Пример сообщения целиком: /t_dop да\nОписание: по умолчанию вы получаете расписание обоих корпусов, если вы хотите получать расписание только своего корпуса, используйте эту команду с параметром нет", false, 0, NULL);
                                 }
                             }
                             else
@@ -1852,7 +1859,7 @@ int main() {
 
                         bot.getApi().sendMessage(userId, "Переход выполнен", false, 0, mSubscribeKeyboard);
                     }
-                    else if (message->text == "Получить расписание") {
+                    else if (message->text == "Посмотреть расписание") {
 
                         bot.getApi().sendMessage(userId, "Переход выполнен", false, 0, getRaspisKeyboard);
                     }
@@ -1860,7 +1867,7 @@ int main() {
 
                         bot.getApi().sendMessage(userId, "Переход выполнен", false, 0, mainMenuKeyboard);
                     }
-                    else if (message->text == "Получить общее расписание") {
+                    else if (message->text == "Посмотреть общее расписание") {
 
                         for (auto& corp : rb::corpss) {
                             for (auto& mPage : corp.pages) {
@@ -1872,17 +1879,17 @@ int main() {
                             }
                         }
                     }
-                    else if (message->text == "Получить расписание преподавателя") {
+                    else if (message->text == "Посмотреть расписание преподавателя") {
                         bot.getApi().sendMessage(userId, "Пример сообщения целиком: /get_p Авдуевская Н.С.", false, 0, NULL);
                     }
-                    else if (message->text == "Получить расписание группы") {
+                    else if (message->text == "Посмотреть расписание группы") {
 
                         bot.getApi().sendMessage(userId, "Пример сообщения целиком: /get_g ИСП-322р", false, 0, NULL);
                     }
                     else if (message->text == "Получать расписание и для другого корпуса") {
 
                         if ((subscribedUsers[UserNumber].mode == 2 || subscribedUsers[UserNumber].mode == 3)) {
-                            bot.getApi().sendMessage(userId, "Пример сообщения целиком: /t_dop да\nОписание: по умолчанию вы получаете расписание обоих корпусов, если вы хотите получить расписание только своего корпуса, используйте эту команду с параметром нет", false, 0, NULL);
+                            bot.getApi().sendMessage(userId, "Пример сообщения целиком: /t_dop да\nОписание: по умолчанию вы получаете расписание обоих корпусов, если вы хотите получать расписание только своего корпуса, используйте эту команду с параметром нет", false, 0, NULL);
                         }
                         else {
                             bot.getApi().sendMessage(userId, "Вы должны быть подписаны на расписание для преподавателя", false, 0, NULL);
