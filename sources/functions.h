@@ -39,12 +39,7 @@ struct myCoord
     myCoord(const float& x, const float& y, const string& name) : x(x), y(y), name(name) {}
 };
 
-const vector<string> Groups = { "ДО-124", "ДО-223", "ДО-322", "ДО-421", "ИИС-124", "ИИС-223", "ИИС-322", "ИИС-421", "ИКС-124",
-"ИКС-223", "ИКС-322", "ИКС-421", "ИСП-124а", "ИСП-124ир", "ИСП-124ис", "ИСП-124п", "ИСП-124р", "ИСП-124т", "ИСП-223а",
-"ИСП-223ир", "ИСП-223ис", "ИСП-223п", "ИСП-223р", "ИСП-223т", "ИСП-322а", "ИСП-322ир", "ИСП-322ис", "ИСП-322п", "ИСП-322р",
-"ИСП-322т", "ИСП-421а", "ИСП-421ир", "ИСП-421ис", "ИСП-421п", "ИСП-421р", "ИСП-421т", "ОИБ-124", "ОИБ-223", "ОИБ-322",
-"ОИБ-421", "ОПС-124", "ОПС-223", "ОПС-322", "ОПС-421", "СИС-124", "СИС-223", "СИС-322", "СИС-421", "ТО-124", "ТО-223",
-"ТО-322", "ТО-421", "ЭСС-124", "ЭСС-223", "ЭСС-322", "ЭСС-421", "МТО-124", "МТО-223", "МТО-322", "МТО-421"};
+vector<string> Groups;
 vector<string> Groups1251;
 
 //общие переменные расписания
@@ -451,4 +446,39 @@ void drawTextFT(cv::Mat& img, const std::string& aa, const std::string& fontPath
 
     FT_Done_Face(face);
     FT_Done_FreeType(ft);
+}
+
+void genGroups() {
+    const vector<string> gName = { "ДО", "ИИС", "ИКС", "ИСП", "МТО", "ОИБ", "ОПС", "СИС", "ТО", "ЭСС" };
+    const vector<string> suf = { "а", "ир", "ис", "п", "р", "т" };
+    int Year = 0;
+    int offset = 0;
+
+    //получение года
+    {
+        time_t t = time(nullptr);
+        tm now = {};
+        localtime_s(&now, &t);
+
+        Year = (now.tm_year + 1900) % 100 - 1;
+
+        if (now.tm_mon > 6 || (now.tm_mon == 6 && now.tm_mday > 5))
+            Year += 1;
+
+        offset = (Year - 24) % 4;
+    }
+
+
+    for (auto& name : gName) {
+        bool isNormal = name != "ИСП";
+
+        int i = isNormal ? 5 : 0;
+
+        for (; i < 6; i++) {
+            for (int j = 0; j < 4; j++) {
+
+                Groups.push_back(std::format("{}-{}{}{}", name, (j + offset) % 4 + 1, Year - (j + offset) % 4, isNormal ? "" : suf[i]));
+            }
+        }
+    }
 }
