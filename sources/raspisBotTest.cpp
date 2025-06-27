@@ -77,6 +77,7 @@ map<string, vector<__int32>> Commands2{
     {"unmut", {6, 1}},
     {"ban", {6, 2}},
     {"unban", {6, 3}},
+    {"happy", {6, 4}}
 };
 
 //ошибки за которые бот отключает пользователя от расписания
@@ -1520,6 +1521,7 @@ int main() {
                                     escapeMarkdownV2("Версия бота: " + version +
                                         "\nВладелец: ||" + to_string(RootTgId) + " " + bot.getApi().getChat(RootTgId)->username +
                                         "||\nМут /mut 123312321\
+\nПоздравить с выпуском 4 курс /happy\
 \nРазмут /unmut 123312321\
 \nЗабанить /ban 123312321\
 \nРазбанить /unban 123312321\
@@ -1744,6 +1746,37 @@ int main() {
                                     else
                                         answerText = "Пользователь уже убран из списка";
                                 }
+                            }
+                            else if (commandId2 == 4) {
+                                
+                                if (commandParam == "") {
+                                    answerText = "Пример:\n\"/happy да\"\nЭта команда нужна для поздравления четверокурсников с выпуском! Можно использовать с 29.06 - 04.07";
+                                }
+                                else if (commandParam == "да") {
+                                    //получение даты
+                                    time_t t = time(nullptr);
+                                    tm now = {};
+                                    localtime_s(&now, &t);
+
+                                    int count = 0;
+
+                                    if ((now.tm_mon == 5 && now.tm_mday > 28) || (now.tm_mon == 6 && now.tm_mday < 5)) {
+                                        
+                                        for (const auto& us : subscribedUsers) {
+                                            if ((us.mode == 0 || us.mode == 1) && (Groups[us.group][Groups[us.group].find('-') + 1] == '4')) {
+                                                bot.getApi().sendMessage(us.tgId, "Поздравляем с выпуском!", false, 0, NULL);
+                                                count++;
+                                            }
+                                        }
+
+                                        answerText = "Рассылка прошла успешно!\nПоздравлено: " + to_string(count) + " человек!";
+                                    }
+                                    else
+                                        answerText = "Ещё не время(\nПодробнее: /happy";
+                                    
+                                }
+                                
+
                             }
                         }
                         else {

@@ -462,7 +462,7 @@ void genGroups() {
 
         Year = (now.tm_year + 1900) % 100 - 1;
 
-        if (now.tm_mon > 6 || (now.tm_mon == 6 && now.tm_mday > 5))
+        if (now.tm_mon > 6 || (now.tm_mon == 6 && now.tm_mday > 4))
             Year += 1;
 
         offset = (Year - 24) % 4;
