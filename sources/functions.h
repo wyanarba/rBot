@@ -41,6 +41,7 @@ struct myCoord
 
 vector<string> Groups;
 vector<string> Groups1251;
+int  CurrentYear = 0;
 
 //общие переменные расписания
 namespace rb {
@@ -49,7 +50,7 @@ namespace rb {
     const string imgPath = "rImages\\";// путь до папок с расписанием
 
     bool ErrorOnCore = 0;// верно ли обработано расписание
-    int currentCorps = 0;//на какой корпус слать расписание
+    int currentCorps = 0;//на какой корпус рассылать расписание
     mutex mtx1, mtxForLog;//для синхронизации проверки режимов
     int8_t syncMode = 0;
     //переменная для синхронизации, 0 - свободный режим, 1 - ожидание остановки потока бота,
@@ -451,7 +452,6 @@ void drawTextFT(cv::Mat& img, const std::string& aa, const std::string& fontPath
 void genGroups() {
     const vector<string> gName = { "ДО", "ИИС", "ИКС", "ИСП", "МТО", "ОИБ", "ОПС", "СИС", "ТО", "ЭСС" };
     const vector<string> suf = { "а", "ир", "ис", "п", "р", "т" };
-    int Year = 0;
     int offset = 0;
 
     //получение года
@@ -460,12 +460,12 @@ void genGroups() {
         tm now = {};
         localtime_s(&now, &t);
 
-        Year = (now.tm_year + 1900) % 100 - 1;
+        CurrentYear = (now.tm_year + 1900) % 100 - 1;
 
         if (now.tm_mon > 6 || (now.tm_mon == 6 && now.tm_mday > 4))
-            Year += 1;
+            CurrentYear += 1;
 
-        offset = (Year - 24) % 4;
+        offset = (CurrentYear - 24) % 4;
     }
 
 
@@ -477,7 +477,7 @@ void genGroups() {
         for (; i < 6; i++) {
             for (int j = 0; j < 4; j++) {
 
-                Groups.push_back(std::format("{}-{}{}{}", name, (j + offset) % 4 + 1, Year - (j + offset) % 4, isNormal ? "" : suf[i]));
+                Groups.push_back(std::format("{}-{}{}{}", name, (j + offset) % 4 + 1, CurrentYear - (j + offset) % 4, isNormal ? "" : suf[i]));
             }
         }
     }

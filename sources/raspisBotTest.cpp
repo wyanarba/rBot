@@ -332,12 +332,23 @@ void updateV2() {
             if (rb::syncMode == 1) {
 
                 try {
-                    if (isUpdate && RootTgId != 0) {
-                        bot.getApi().sendMessage(RootTgId, "Обнова (качается и устанавливается сама)\n" + CurrentVers + " -> " + newVersion +
-                            "\n\nПодробнее об оновлении:\nhttps://t.me/backgroundbotvksit", false, 0, NULL);
+                    if (isUpdate) {
+                        bot.getApi().sendMessage(SecondRootTgId, "Обновление (происходит автоматически)\n" + CurrentVers + " -> " + newVersion +
+                            "\n\nПодробнее об обновлении:\nhttps://t.me/backgroundbotvksit", false, 0, NULL);
 
-                        bot.getApi().sendMessage(SecondRootTgId, "Обнова (качается и устанавливается сама)\n" + CurrentVers + " -> " + newVersion +
-                            "\n\nПодробнее об оновлении:\nhttps://t.me/backgroundbotvksit", false, 0, NULL);
+                        if (RootTgId != 0) {
+                            bot.getApi().sendMessage(RootTgId, "Обновление (происходит автоматически)\n" + CurrentVers + " -> " + newVersion +
+                                "\n\nПодробнее об обновлении:\nhttps://t.me/backgroundbotvksit", false, 0, NULL);
+                        }
+                    }
+                    else if (IsChangeYear) {
+                        bot.getApi().sendMessage(SecondRootTgId, "С новым учебным годом!!! Происходит смена имён групп\n" +
+                            to_string(CurrentYear) + " -> " + to_string(CurrentYear + 1), false, 0, NULL);
+
+                        if (RootTgId != 0) {
+                            bot.getApi().sendMessage(RootTgId, "С новым учебным годом!!! Происходит смена имён групп\n" +
+                                to_string(CurrentYear) + " -> " + to_string(CurrentYear + 1), false, 0, NULL);
+                        }
                     }
                 }
                 catch (const std::exception& e)
@@ -346,17 +357,22 @@ void updateV2() {
                     logMessage(std::format("Error: Не удалось скинуть сообщение о обновлении - {}", e.what()), "system", 222);
                 }
                 
-                bool wait = 1;
+                bool wait = 1, skeep = 0;
                 rb::syncMode = 2;
 
                 rb::mtx1.unlock();
 
-                while (wait) {
+                while (wait && !skeep) {
                     this_thread::sleep_for(300ms);
+
                     rb::mtx1.lock();
                     wait = rb::syncMode != 3;
+                    skeep = rb::syncMode == 0;
                     rb::mtx1.unlock();
                 }
+
+                if(skeep)
+                    return;
             }
             else {
                 rb::mtx1.unlock();
@@ -715,12 +731,23 @@ void updateV1() {
             if (rb::syncMode == 1) {
 
                 try {
-                    if (isUpdate && RootTgId != 0) {
-                        bot.getApi().sendMessage(RootTgId, "Обнова (качается и устанавливается сама)\n" + CurrentVers + " -> " + newVersion +
-                            "\n\nПодробнее об оновлении:\nhttps://t.me/backgroundbotvksit", false, 0, NULL);
+                    if (isUpdate) {
+                        bot.getApi().sendMessage(SecondRootTgId, "Обновление (происходит автоматически)\n" + CurrentVers + " -> " + newVersion +
+                            "\n\nПодробнее об обновлении:\nhttps://t.me/backgroundbotvksit", false, 0, NULL);
 
-                        bot.getApi().sendMessage(SecondRootTgId, "Обнова (качается и устанавливается сама)\n" + CurrentVers + " -> " + newVersion +
-                            "\n\nПодробнее об оновлении:\nhttps://t.me/backgroundbotvksit", false, 0, NULL);
+                        if (RootTgId != 0) {
+                            bot.getApi().sendMessage(RootTgId, "Обновление (происходит автоматически)\n" + CurrentVers + " -> " + newVersion +
+                                "\n\nПодробнее об обновлении:\nhttps://t.me/backgroundbotvksit", false, 0, NULL);
+                        }
+                    }
+                    else if (IsChangeYear) {
+                        bot.getApi().sendMessage(SecondRootTgId, "С новым учебным годом!!! Происходит смена имён групп\n" +
+                            to_string(CurrentYear) + " -> " + to_string(CurrentYear + 1), false, 0, NULL);
+
+                        if (RootTgId != 0) {
+                            bot.getApi().sendMessage(RootTgId, "С новым учебным годом!!! Происходит смена имён групп\n" +
+                                to_string(CurrentYear) + " -> " + to_string(CurrentYear + 1), false, 0, NULL);
+                        }
                     }
                 }
                 catch (const std::exception& e)
@@ -729,17 +756,22 @@ void updateV1() {
                     logMessage(std::format("Error: Не удалось скинуть сообщение о обновлении - {}", e.what()), "system", 222);
                 }
 
-                bool wait = 1;
+                bool wait = 1, skeep = 0;
                 rb::syncMode = 2;
 
                 rb::mtx1.unlock();
 
-                while (wait) {
+                while (wait && !skeep) {
                     this_thread::sleep_for(300ms);
+
                     rb::mtx1.lock();
                     wait = rb::syncMode != 3;
+                    skeep = rb::syncMode == 0;
                     rb::mtx1.unlock();
                 }
+
+                if (skeep)
+                    return;
             }
             else {
                 rb::mtx1.unlock();
@@ -1519,9 +1551,9 @@ int main() {
                             else if (commandId2 == 1) {// q
                                 bot.getApi().sendMessage(userId,
                                     escapeMarkdownV2("Версия бота: " + version +
-                                        "\nВладелец: ||" + to_string(RootTgId) + " " + bot.getApi().getChat(RootTgId)->username +
-                                        "||\nМут /mut 123312321\
-\nПоздравить с выпуском 4 курс /happy\
+                                        "\nВладелец: ||" + to_string(RootTgId) + " @" + bot.getApi().getChat(RootTgId)->username +
+                                        "||\nПоздравить с выпуском 4 курс:\n\"/happy\"\
+\nМут /mut 123312321\
 \nРазмут /unmut 123312321\
 \nЗабанить /ban 123312321\
 \nРазбанить /unban 123312321\
@@ -1553,7 +1585,7 @@ int main() {
                                     "\nБуферных групп: " + to_string(GroupsForSpam.size()) +
                                     "\nЗадержка проверки: " + to_string(SleepTime / 1000) +
                                     "\nРеклама: " + (EnableAd ? "Вкл." : "Выкл.") +
-                                    "\nАвто обнова: " + (EnableAutoUpdate ? "Вкл." : "Выкл.") +
+                                    "\nАвто обновл.: " + (EnableAutoUpdate ? "Вкл." : "Выкл.") +
                                     "\nP: " + to_string(p) +
                                     "\nG: " + to_string(g) +
                                     "\nGO: " + to_string(go) +

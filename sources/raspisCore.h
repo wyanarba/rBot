@@ -1,8 +1,8 @@
 #pragma once
 //123
 
-const string CurrentVers = "v3.3";
-const string version = CurrentVers + " (28.06.2024) поздравления?";
+const string CurrentVers = "v3.4";
+const string version = CurrentVers + " (28.06.2024) доведение до ума";
 
 string FirstUrl = "https://rasp.vksit.ru/";
 //https://wyanarba.github.io/rBot/
@@ -23,6 +23,10 @@ bool EnableAutoUpdate = 1;
 int tryesChek = 0;//1 из 10 проверка на обнову
 bool isUpdate = 0;
 string newVersion;
+
+int AttemptsToCheck2 = 0;
+bool IsChangeYear = 0;
+//int  CurrentYear = 0; // мне это надоело, скоро буду исправлять, хоть и страшно что то сломать, но по сути надо
 
 int cutsOffX = 0, cutsOffY = 0, leftEdge = 0;
 set <string>spamText;
@@ -961,8 +965,10 @@ void main2() {
 
                 // Поиск обновы
                 {
-                    if (EnableAutoUpdate && tryesChek == 0)//чек обновы
-                    {
+                    if (EnableAutoUpdate && tryesChek == 0) {//чек обновы
+                    
+                        tryesChek++;
+
                         if (DownloadFileToMemory("https://wyanarba.github.io/rBot/", newVersion) && newVersion.size() < 8) {
                             if (newVersion != CurrentVers) {
                                 logMessage("Обнова!!! " + CurrentVers + " -> " + newVersion, "system");
@@ -985,18 +991,69 @@ void main2() {
                                 system(update_command);
                                 exit(0);
                             }
-                            tryesChek++;
                         }
                         else {
                             logMessage("Не удалось скачать версию", "system", 121);
                         }
                     }
-                    else if (tryesChek < 10) {
+
+                    else if (tryesChek < 10)
                         tryesChek++;
-                    }
-                    else if (tryesChek == 10) {
+                    else if (tryesChek == 10)
                         tryesChek = 0;
+                }
+
+                // Смена года
+                {
+                    if (AttemptsToCheck2 == 0){
+
+                        AttemptsToCheck2++;
+
+                        time_t t = time(nullptr);
+                        tm now = {};
+                        localtime_s(&now, &t);
+
+                        now.tm_year = (now.tm_year + 1900) % 100;
+
+                        if (now.tm_year > CurrentYear && (now.tm_mon > 6 || (now.tm_mon == 6 && now.tm_mday > 4))) {
+                            logMessage("Смена года!!! " + to_string(CurrentYear) + " -> " + to_string(now.tm_year), "system");
+                            IsChangeYear = 1;
+
+
+                            rb::mtx1.lock();// Приостанавливаем бота
+                            rb::syncMode = 1;
+                            bool wait = 1;
+                            rb::mtx1.unlock();
+
+                            while (wait) {
+                                this_thread::sleep_for(100ms);
+                                rb::mtx1.lock();
+                                wait = rb::syncMode != 2;
+                                rb::mtx1.unlock();
+                            }
+
+
+                            // Сама смена
+                            Groups.clear();
+                            Groups1251.clear();
+
+                            genGroups();
+                            for (int i = 0; i < Groups.size(); i++) {
+                                Groups1251.push_back(Utf8_to_cp1251(Groups[i].c_str()));
+                            }
+
+
+                            // Возращение
+                            rb::mtx1.lock();
+                            rb::syncMode = 0;
+                            rb::mtx1.unlock();
+                        }
                     }
+
+                    else if(AttemptsToCheck2 < 30)
+                        AttemptsToCheck2++;
+                    else if (tryesChek == 30)
+                        AttemptsToCheck2 = 0;
                 }
             }
             catch (const std::exception& e)
