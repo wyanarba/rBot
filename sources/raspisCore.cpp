@@ -25,8 +25,8 @@ struct myCoord
 };
 
 
-const string CurrentVersion = "v3.5";
-const string Version = CurrentVersion + " (28.06.2024) сведение с ума";
+const string CurrentVersion = "v3.6";
+const string Version = CurrentVersion + " (04.09.2024) скоро уже год?";
 
 string MainUrl = "https://rasp.vksit.ru/";
 const char UpdateCommand[17] = "start update.bat";
@@ -1012,6 +1012,23 @@ static void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
     }
     outputFile.close();  // Закрываем файл
 
+    //проверка на наличие изменений
+    if (!isNewFile){
+        Mat sImageLast = imread(folderToSave + "coper.png");
+
+        // Разделяем оба изображения на каналы
+        std::vector<cv::Mat> channels1, channels2;
+        cv::split(imageCoper, channels1);
+        cv::split(sImageLast, channels2);
+
+        // Сравниваем каждый канал
+        if (imageCoper.size() != sImageLast.size() || cv::countNonZero(channels1[0] != channels2[0]) != 0) {
+            mPage.isEmpty = 0;
+        }
+        else
+            mPage.isEmpty = 1;
+    }
+
     //добавление рекламы
     if (cfg::EnableAd) {
         Mat adImg = imread("..\\imgs\\ad.png");//   ..\\imgs\\ad.png
@@ -1033,7 +1050,6 @@ static void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
     //сохранение мусора ;)
     cv::imwrite(folderToSave + "coper.png", imageCoper);
     cv::imwrite(folderToSave + "coper2.png", imageCoper2);
-    cout << corpsNum;
 }
 
 void main2() {

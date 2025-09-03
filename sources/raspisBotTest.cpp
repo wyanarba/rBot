@@ -79,6 +79,7 @@ map<string, vector<__int32>> Commands2{
     {"tea", {5, 4}},
     {"get_us", {5, 5}},
     {"update", {5, 6}},
+    {"send_ad", {5, 7}},
 
     {"mut", {6, 0}},
     {"unmut", {6, 1}},
@@ -128,6 +129,7 @@ static string formatG(string str) {
 
     str = Utf8_to_cp1251(str.c_str());
 
+    str.erase(std::remove(str.begin(), str.end(), 32), str.end());
 
     int size = str.size();
     if (size < 5)
@@ -336,65 +338,68 @@ static void updateUsersFile(int version) {
 bool IsNormalCfg = getConfig("..\\config.txt");
 TgBot::Bot bot(cfg::BotKey);
 
+static void checkUpdate() {
+    //ожидание сообщения об отправке от ядра
+    {
+        sync::mtx1.lock();
+        if (sync::SyncMode == 1) {
+
+            try {
+                if (sync::IsUpdate) {
+                    bot.getApi().sendMessage(cfg::SecondRootTgId, "Обновление (происходит автоматически)\n" + CurrentVersion + " -> " + sync::NewVersion +
+                        "\n\nПодробнее об обновлении:\nhttps://t.me/backgroundbotvksit", false, 0, NULL);
+
+                    if (cfg::RootTgId != 0) {
+                        bot.getApi().sendMessage(cfg::RootTgId, "Обновление (происходит автоматически)\n" + CurrentVersion + " -> " + sync::NewVersion +
+                            "\n\nПодробнее об обновлении:\nhttps://t.me/backgroundbotvksit", false, 0, NULL);
+                    }
+                }
+                else if (sync::IsChangeYear) {
+                    bot.getApi().sendMessage(cfg::SecondRootTgId, "С новым учебным годом!!! Происходит смена имён групп\n" +
+                        to_string(sync::CurrentYear) + " -> " + to_string(sync::CurrentYear + 1), false, 0, NULL);
+
+                    if (cfg::RootTgId != 0) {
+                        bot.getApi().sendMessage(cfg::RootTgId, "С новым учебным годом!!! Происходит смена имён групп\n" +
+                            to_string(sync::CurrentYear) + " -> " + to_string(sync::CurrentYear + 1), false, 0, NULL);
+                    }
+                }
+            }
+            catch (const std::exception& e)
+            {
+                string str = e.what();
+                logMessage(std::format("Error: Не удалось скинуть сообщение о обновлении - {}", e.what()), "system", 222);
+            }
+
+            bool wait = 1, skip = 0;
+            sync::SyncMode = 2;
+
+            sync::mtx1.unlock();
+
+            while (wait && !skip) {
+                this_thread::sleep_for(300ms);
+
+                sync::mtx1.lock();
+                wait = sync::SyncMode != 3;
+                skip = sync::SyncMode == 0;
+                sync::mtx1.unlock();
+            }
+
+            if (skip)
+                return;
+        }
+        else {
+            sync::mtx1.unlock();
+            return;
+        }
+    }
+
+    cfg::update();
+}
+
 static void updateV2() {
 
     try
     {
-        //ожидание сообщения об отправке от ядра
-        {
-            sync::mtx1.lock();
-            if (sync::SyncMode == 1) {
-
-                try {
-                    if (sync::IsUpdate) {
-                        bot.getApi().sendMessage(cfg::SecondRootTgId, "Обновление (происходит автоматически)\n" + CurrentVersion + " -> " + sync::NewVersion +
-                            "\n\nПодробнее об обновлении:\nhttps://t.me/backgroundbotvksit", false, 0, NULL);
-
-                        if (cfg::RootTgId != 0) {
-                            bot.getApi().sendMessage(cfg::RootTgId, "Обновление (происходит автоматически)\n" + CurrentVersion + " -> " + sync::NewVersion +
-                                "\n\nПодробнее об обновлении:\nhttps://t.me/backgroundbotvksit", false, 0, NULL);
-                        }
-                    }
-                    else if (sync::IsChangeYear) {
-                        bot.getApi().sendMessage(cfg::SecondRootTgId, "С новым учебным годом!!! Происходит смена имён групп\n" +
-                            to_string(sync::CurrentYear) + " -> " + to_string(sync::CurrentYear + 1), false, 0, NULL);
-
-                        if (cfg::RootTgId != 0) {
-                            bot.getApi().sendMessage(cfg::RootTgId, "С новым учебным годом!!! Происходит смена имён групп\n" +
-                                to_string(sync::CurrentYear) + " -> " + to_string(sync::CurrentYear + 1), false, 0, NULL);
-                        }
-                    }
-                }
-                catch (const std::exception& e)
-                {
-                    string str = e.what();
-                    logMessage(std::format("Error: Не удалось скинуть сообщение о обновлении - {}", e.what()), "system", 222);
-                }
-                
-                bool wait = 1, skip = 0;
-                sync::SyncMode = 2;
-
-                sync::mtx1.unlock();
-
-                while (wait && !skip) {
-                    this_thread::sleep_for(300ms);
-
-                    sync::mtx1.lock();
-                    wait = sync::SyncMode != 3;
-                    skip = sync::SyncMode == 0;
-                    sync::mtx1.unlock();
-                }
-
-                if(skip)
-                    return;
-            }
-            else {
-                sync::mtx1.unlock();
-                return;
-            }
-        }
-            
-
         
         int triesToSend = 0;//попытки отправки одному человеку
         int edgeGroup = 0;// кол-во файлов на буферную группу
@@ -739,59 +744,6 @@ static void updateV1() {
 
     try
     {
-        //ожидание сообщения об отправке от ядра
-        {
-            sync::mtx1.lock();
-            if (sync::SyncMode == 1) {
-
-                try {
-                    if (sync::IsUpdate) {
-                        bot.getApi().sendMessage(cfg::SecondRootTgId, "Обновление (происходит автоматически)\n" + CurrentVersion + " -> " + sync::NewVersion +
-                            "\n\nПодробнее об обновлении:\nhttps://t.me/backgroundbotvksit", false, 0, NULL);
-
-                        if (cfg::RootTgId != 0) {
-                            bot.getApi().sendMessage(cfg::RootTgId, "Обновление (происходит автоматически)\n" + CurrentVersion + " -> " + sync::NewVersion +
-                                "\n\nПодробнее об обновлении:\nhttps://t.me/backgroundbotvksit", false, 0, NULL);
-                        }
-                    }
-                    else if (sync::IsChangeYear) {
-                        bot.getApi().sendMessage(cfg::SecondRootTgId, "С новым учебным годом!!! Происходит смена имён групп\n" +
-                            to_string(sync::CurrentYear) + " -> " + to_string(sync::CurrentYear + 1), false, 0, NULL);
-
-                        if (cfg::RootTgId != 0) {
-                            bot.getApi().sendMessage(cfg::RootTgId, "С новым учебным годом!!! Происходит смена имён групп\n" +
-                                to_string(sync::CurrentYear) + " -> " + to_string(sync::CurrentYear + 1), false, 0, NULL);
-                        }
-                    }
-                }
-                catch (const std::exception& e)
-                {
-                    string str = e.what();
-                    logMessage(std::format("Error: Не удалось скинуть сообщение о обновлении - {}", e.what()), "system", 222);
-                }
-
-                bool wait = 1, skeep = 0;
-                sync::SyncMode = 2;
-
-                sync::mtx1.unlock();
-
-                while (wait && !skeep) {
-                    this_thread::sleep_for(300ms);
-
-                    sync::mtx1.lock();
-                    wait = sync::SyncMode != 3;
-                    skeep = sync::SyncMode == 0;
-                    sync::mtx1.unlock();
-                }
-
-                if (skeep)
-                    return;
-            }
-            else {
-                sync::mtx1.unlock();
-                return;
-            }
-        }
 
 
         int triesToSend = 0;//попытки отправки одному человеку
@@ -1304,8 +1256,6 @@ int main() {
 
                                         SubscribedUsers.insert(SubscribedUsers.begin() + UserNumber + UserNumbers.size() + 1, MyUs);
                                         user = &SubscribedUsers[UserNumber + UserNumbers.size() + 1];
-
-                                        cout << 123123123;
                                     }
                                 }
 
@@ -1549,6 +1499,7 @@ int main() {
                             //{ "tea", {5, 4} },
                             //{ "get_us", {5, 5} },
                             //{ "update", {5, 6} },
+                            //{ "send_add", { 5, 7 } },
 
                             if (commandId2 == 0) {// qq
                                 if (commandParam == "1")
@@ -1560,13 +1511,14 @@ int main() {
                                 else if (commandParam == "4")
                                     bot.getApi().sendDocument(userId, TgBot::InputFile::fromFile("..\\updater\\log.txt", "text/plain"));
                                 else
-                                    answerText = "Пример|\n\"/qq 1\"\nНомера расписаны в /info";
+                                    answerText = "Пример:\n\"/qq 1\"\nНомера расписаны в /info";
                             }
                             else if (commandId2 == 1) {// q
                                 bot.getApi().sendMessage(userId,
                                     escapeMarkdownV2("Версия бота: " + Version +
                                         "\nВладелец: ||" + to_string(cfg::RootTgId) + " @" + bot.getApi().getChat(cfg::RootTgId)->username +
-                                        "||\nПоздравить с выпуском 4 курс:\n\"/happy\"\
+"||\nПоздравить с выпуском 4 курс:\n\"/happy\"\
+\nРеклама \"/send_ad\"\
 \nМут /mut 123312321\
 \nРазмут /unmut 123312321\
 \nЗабанить /ban 123312321\
@@ -1702,6 +1654,48 @@ int main() {
                                 answerText = "Проверка обновления пройдёт скорее";
                                 sync::AttemptsToCheck = 0;
                             }
+                            else if (commandId2 == 7) {
+
+                                if (commandParam.size() == 1 && commandParam[0] - '0' > -1 && commandParam[0] - '0' < 3) {
+
+                                    int count = 0;
+                                    int mode = commandParam[0] - '0';
+
+                                    for (const auto& us : SubscribedUsers) {
+                                        if ((mode == 0 || mode == 1) && us.mode == 0 && us.group != -1) {// Группа
+                                            try {
+                                                bot.getApi().sendPhoto(us.tgId, TgBot::InputFile::fromFile("..\\imgs\\ad2.png", "image/png"));
+                                                bot.getApi().sendMessage(us.tgId, "Попробуйте более удобный формат расписания для групп\n\nКоманда для этого:\n/sub_go", false, 0);
+                                            }
+                                            catch (const std::exception& e) {
+                                                logMessage("124a) EROR | " + (string)e.what(), "system", 52);
+                                            }
+
+                                            count++;
+                                        }
+                                        else if ((mode == 0 || mode == 2) && us.group == -1) {
+                                            try {
+                                                bot.getApi().sendPhoto(us.tgId, TgBot::InputFile::fromFile("..\\imgs\\ad2.png", "image/png"));
+                                                bot.getApi().sendPhoto(us.tgId, TgBot::InputFile::fromFile("..\\imgs\\ad3.png", "image/png"));
+                                                bot.getApi().sendMessage(us.tgId, "Попробуйте более удобный формат расписания для групп / преподавателей\n\n\
+Команды для этого:\n/sub_go\nи\n/sub_p", false, 0);
+                                            }
+                                            catch (const std::exception& e) {
+                                                logMessage("124b) EROR | " + (string)e.what(), "system", 52);
+                                            }
+
+                                            count++;
+                                        }
+                                    }
+
+                                    answerText = "Рассылка прошла успешно!\nОтправлено: " + to_string(count) + " людям!";
+                                }
+                                else {
+                                    answerText = "Пример:\n\"/send_ad 1\"\n0 - общий режим\n1 - пользователям с sub_g\n2 - пользователям с sub_o\n\n\
+Не следует слишком часто использовать эти команды, лучше всего как мне кажется - раз в месяц в четверг - пятницу, до рассылки настоящего расписания, часов в 10 - 11\n\n\
+PS. я бы мог реализовать кастомные текста, цели, картинки, но мне кажется, что это лишь не нужное усложнение";
+                                }
+                            }
                         }
                         else if (commandId == 6 && userId == cfg::RootTgId) {
                             //{ "mut", { 6, 0 } },
@@ -1795,9 +1789,9 @@ int main() {
                             else if (commandId2 == 4) {
                                 
                                 if (commandParam == "") {
-                                    answerText = "Пример:\n\"/happy да\"\nЭта команда нужна для поздравления четверокурсников с выпуском! Можно использовать с 29.06 - 04.07";
+                                    answerText = "Пример:\n\"/happy Поздравляем с выпуском!\"\nЭта команда нужна для поздравления четверокурсников с выпуском! Можно использовать с 29.06 - 04.07";
                                 }
-                                else if (commandParam == "да") {
+                                else if (commandParam != "") {
                                     //получение даты
                                     time_t t = time(nullptr);
                                     tm now = {};
@@ -1805,12 +1799,12 @@ int main() {
 
                                     int count = 0;
 
-                                    if ((now.tm_mon == 5 && now.tm_mday > 28) || (now.tm_mon == 6 && now.tm_mday < 5)) {
+                                    if (true) {
                                         
                                         for (const auto& us : SubscribedUsers) {
                                             if ((us.mode == 0 || us.mode == 1) && (rb::Groups[us.group][rb::Groups[us.group].find('-') + 1] == '4')) {
                                                 try {
-                                                    bot.getApi().sendMessage(us.tgId, "Поздравляем с выпуском!", false, 0, NULL);
+                                                    bot.getApi().sendMessage(us.tgId, commandParam, false, 0, NULL);
                                                 }
                                                 catch (const std::exception& e) {
                                                     logMessage("124) EROR | " + (string)e.what(), "system", 52);
@@ -2066,7 +2060,8 @@ int main() {
 
                         bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile("..\\imgs\\ad2.png", "image/png"));
                         bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile("..\\imgs\\ad3.png", "image/png"));
-                        bot.getApi().sendMessage(userId, "Попробуйте более удобный формат расписания для групп / преподавателей.", false, 0);
+                        bot.getApi().sendMessage(userId, "Попробуйте более удобный формат расписания для групп / преподавателей\n\n\
+Команды для этого:\n/sub_go\nи\n/sub_p", false, 0);
                     }
                     else 
                         bot.getApi().sendMessage(userId, "Сначала подпишитесь на расписание", false, 0, subscribeKeyboard);
@@ -2119,7 +2114,7 @@ int main() {
                     }
 
                 }
-                cfg::update();
+                checkUpdate();
             }
         }
         catch (const std::exception& e) {
