@@ -87,13 +87,25 @@ map<string, vector<__int32>> Commands2{
 
 //ошибки за которые бот отключает пользователя от расписания
 vector <string> ErrorsForBan = {
-    "bot was kicked",
+    "USER_IS_BLOCKED",
+    "YOU_BLOCKED_USER",
+    "USER_BANNED_IN_CHANNEL",
+    "INPUT_USER_DEACTIVATED",
+    "CHAT_WRITE_FORBIDDEN",
+    "CHAT_SEND_PLAIN_FORBIDDEN",
+    "CHAT_GUEST_SEND_FORBIDDEN",
+    "CHANNEL_PRIVATE",
+    "PEER_ID_INVALID",
+    "CHAT_ID_INVALID",
+    "USER_IS_BOT"
+
+    /*"bot was kicked",
     "user is deactivated",
     "bot was blocked by the user",
     "chat not found",
     "user not found",
     "Bot is not a member of the channel chat",
-    "Group migrated to supergroup"
+    "Group migrated to supergroup"*/
 };
 
 
@@ -244,7 +256,8 @@ static bool getConfig(string confName) {
                 cfg::BotKey = value;
             else if (parameter == "RootTgId")
                 cfg::RootTgId = stoll(value);
-            else if (parameter == "GroupId" && cfg::GroupsForSpam.size() < 31)
+            else if (parameter == "GroupId" && cfg::GroupsForSpam.size() < 31 && 
+                std::find(cfg::GroupsForSpam.begin(), cfg::GroupsForSpam.end(), stoll(value)) == cfg::GroupsForSpam.end())
                 cfg::GroupsForSpam.push_back(stoll(value));
             else if (parameter == "Mode")
                 cfg::ModeSend = value == "1";
@@ -578,7 +591,6 @@ static void updateV2() {
 
             // Отправка в группу
             {
-                int countG = 0, localCount = 0;//кол-во групп 1, кол-во групп 2
 
                 bool wdadwwww = 0;
                 for (auto& mPage : corp.pages) {
@@ -592,7 +604,6 @@ static void updateV2() {
                     if (!mPage.isEmpty) {
                         for (int i = 0; i < mPage.groups.size(); i++) {
                             if (mPage.groups[i].isExists && !rb::DisabledGroups[i]) {
-                                countG++;
 
                                 if (!isEnableGroup[i] && mPage.groups[i].changed)
                                     isEnableGroup[i] = 1;
@@ -600,15 +611,14 @@ static void updateV2() {
                                 
                         }
                             
-                        countG++;
                     }
                 }
 
-                countG = countG / cfg::GroupsForSpam.size() + 1;
 
 
                 //отправка в группу
                 bool success = 0;
+                int localCount = 0;
 
                 for (auto& mPage : corp.pages) {
                     if (mPage.isEmpty)
@@ -622,7 +632,7 @@ static void updateV2() {
 
                             if (group.isExists && !rb::DisabledGroups[i]) {
                                 localCount++;
-                                group.idSpam = (localCount / countG) % cfg::GroupsForSpam.size();
+                                group.idSpam = localCount % cfg::GroupsForSpam.size();
 
                                 auto message = bot.getApi().sendPhoto(cfg::GroupsForSpam[group.idSpam],
                                     TgBot::InputFile::fromFile(rb::imgPath + mPage.folderName + "\\" + rb::Groups1251[i] + ".png", "image/png"));
@@ -673,7 +683,7 @@ static void updateV2() {
                 imgs.clear();
                 imgs2.clear();
                 auto& us = SubscribedUsers[i];
-                triesToSend = 0;
+
                 try {
                     for (auto& mPage : corp.pages) {
                         if (mPage.isEmpty)
@@ -698,13 +708,14 @@ static void updateV2() {
                     }
 
                     if (us.mode != 2 && us.mode != 3) {
-                        if(imgs.size() != 0)
+                        if (imgs.size() != 0) {
                             sendMediaGroup3(to_string(us.tgId), imgs);
-                        if(us.group == -1)
                             bot.getApi().sendMessage(us.tgId, "Расписание " + to_string(corp.localOffset + 1) + " корпуса", 0, 0, NULL);
+                        }
                     }
                     else if(imgs2.size() != 0){
                         sendMediaGroup2(to_string(us.tgId), imgs2);
+                        bot.getApi().sendMessage(us.tgId, "Расписание " + to_string(corp.localOffset + 1) + " корпуса", 0, 0, NULL);
                     }
                         
 
@@ -723,7 +734,7 @@ static void updateV2() {
                         i--;
                     }
                     else {
-                        if (triesToSend > 20) {
+                        if (triesToSend > 12) {
                             logMessage("УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС 123!) " + (string)e.what() + " | " + to_string(SubscribedUsers[i].tgId), "system", 10);
                             try {
                                 bot.getApi().sendMessage(SubscribedUsers[i].tgId, "Простите за не удобство, попытка отправки расписания вам не удалась", 0, 0);
