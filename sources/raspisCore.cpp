@@ -24,7 +24,7 @@ struct myCoord
 };
 
 
-const string CurrentVersion = "v3.7";
+const string CurrentVersion = "v3.8";
 const string Version = CurrentVersion + " (04.09.2024) скоро уже год?";
 
 string MainUrl = "https://rasp.vksit.ru/";
