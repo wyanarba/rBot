@@ -1,4 +1,3 @@
-#include <tgbot/tgbot.h>
 #include <thread>
 
 #include "pch.h"
@@ -7,8 +6,6 @@
 #include "functions.h"
 #include "values.h"
 
-using namespace TgBot;
-namespace fs = std::filesystem;
 
 struct myUser
 {
@@ -213,7 +210,7 @@ static __int32 findCommand(string message, int& param2) {
         param2 = a->second[1];
         return a->second[0];
     }
-    else 
+    else
         return -1;
 }
 
@@ -347,20 +344,20 @@ static void checkUpdate() {
             try {
                 if (sync::IsUpdate) {
                     bot.getApi().sendMessage(cfg::SecondRootTgId, "Обновление (происходит автоматически)\n" + CurrentVersion + " -> " + sync::NewVersion +
-                        "\n\nПодробнее об обновлении:\nhttps://t.me/backgroundbotvksit", false, 0, NULL);
+                        "\n\nПодробнее об обновлении:\nhttps://t.me/backgroundbotvksit", 0, 0, NULL);
 
                     if (cfg::RootTgId != 0) {
                         bot.getApi().sendMessage(cfg::RootTgId, "Обновление (происходит автоматически)\n" + CurrentVersion + " -> " + sync::NewVersion +
-                            "\n\nПодробнее об обновлении:\nhttps://t.me/backgroundbotvksit", false, 0, NULL);
+                            "\n\nПодробнее об обновлении:\nhttps://t.me/backgroundbotvksit", 0, 0, NULL);
                     }
                 }
                 else if (sync::IsChangeYear) {
                     bot.getApi().sendMessage(cfg::SecondRootTgId, "С новым учебным годом!!! Происходит смена имён групп\n" +
-                        to_string(sync::CurrentYear) + " -> " + to_string(sync::CurrentYear + 1), false, 0, NULL);
+                        to_string(sync::CurrentYear) + " -> " + to_string(sync::CurrentYear + 1), 0, 0, NULL);
 
                     if (cfg::RootTgId != 0) {
                         bot.getApi().sendMessage(cfg::RootTgId, "С новым учебным годом!!! Происходит смена имён групп\n" +
-                            to_string(sync::CurrentYear) + " -> " + to_string(sync::CurrentYear + 1), false, 0, NULL);
+                            to_string(sync::CurrentYear) + " -> " + to_string(sync::CurrentYear + 1), 0, 0, NULL);
                     }
                 }
             }
@@ -396,13 +393,183 @@ static void checkUpdate() {
     cfg::update();
 }
 
+void sendMediaGroup2(string chatId, vector<string>& imgs) {
+    if (imgs.empty())
+        return;
+
+    std::string url = "https://api.telegram.org/bot" + cfg::BotKey + "/sendMediaGroup";
+
+    CURL* curl = curl_easy_init();
+    if (!curl) {
+        throw std::runtime_error("Failed to initialize CURL");
+    }
+
+    curl_mime* mime = curl_mime_init(curl);
+
+    // Добавляем chat_id
+    {
+        curl_mimepart* part = curl_mime_addpart(mime);
+        curl_mime_name(part, "chat_id");
+        curl_mime_data(part, chatId.c_str(), CURL_ZERO_TERMINATED);
+    }
+
+    // Формируем JSON для media и добавляем файлы
+    std::string mediaJson = "[";
+    vector<std::string> fieldNames; // Сохраняем имена полей
+
+    for (size_t i = 0; i < imgs.size(); i++) {
+        // Сохраняем имя поля
+        fieldNames.push_back("file" + std::to_string(i));
+
+        // Добавляем файл в multipart
+        curl_mimepart* part = curl_mime_addpart(mime);
+        curl_mime_name(part, fieldNames.back().c_str());
+        curl_mime_filedata(part, imgs[i].c_str());
+
+        // Формируем JSON элемент
+        if (i > 0) mediaJson += ",";
+        mediaJson += "\n  {";
+        mediaJson += "\"type\":\"photo\"";
+        mediaJson += ",\"media\":\"attach://" + fieldNames.back() + "\"";
+        // Явно указываем has_spoiler как false
+        mediaJson += ",\"has_spoiler\":false";
+        mediaJson += "}";
+    }
+    mediaJson += "\n]";
+
+    // Добавляем media JSON
+    {
+        curl_mimepart* part = curl_mime_addpart(mime);
+        curl_mime_name(part, "media");
+        curl_mime_data(part, mediaJson.c_str(), CURL_ZERO_TERMINATED);
+    }
+
+
+    // Настраиваем обработку ответа
+    std::string response;
+    auto write_cb = +[](char* ptr, size_t size, size_t nmemb, void* userdata) -> size_t {
+        auto* out = static_cast<std::string*>(userdata);
+        out->append(ptr, size * nmemb);
+        return size * nmemb;
+        };
+
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_cb);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_MIMEPOST, mime);
+
+    // Выполняем запрос
+    CURLcode res = curl_easy_perform(curl);
+
+    if (res != CURLE_OK) {
+        curl_mime_free(mime);
+        curl_easy_cleanup(curl);
+        throw std::runtime_error("curl_easy_perform() failed: " + std::string(curl_easy_strerror(res)));
+    }
+
+    // Проверяем HTTP код ответа
+    long httpCode = 0;
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
+
+    // Очищаем ресурсы
+    curl_mime_free(mime);
+    curl_easy_cleanup(curl);
+
+    // Проверяем на ошибки HTTP
+    if (httpCode >= 400) {
+        throw std::runtime_error("HTTP error " + std::to_string(httpCode) + ": " + response);
+    }
+}
+
+void sendMediaGroup3(string chatId, vector<string>& imgs) {
+    if (imgs.empty())
+        return;
+
+    std::string url = "https://api.telegram.org/bot" + cfg::BotKey + "/sendMediaGroup";
+
+    CURL* curl = curl_easy_init();
+    if (!curl) {
+        throw std::runtime_error("Failed to initialize CURL");
+    }
+
+    curl_mime* mime = curl_mime_init(curl);
+
+    // Добавляем chat_id
+    {
+        curl_mimepart* part = curl_mime_addpart(mime);
+        curl_mime_name(part, "chat_id");
+        curl_mime_data(part, chatId.c_str(), CURL_ZERO_TERMINATED);
+    }
+
+    // Формируем JSON для media и добавляем файлы
+    std::string mediaJson = "[";
+
+    for (size_t i = 0; i < imgs.size(); i++) {
+
+        // Формируем JSON элемент
+        if (i > 0) mediaJson += ",";
+        mediaJson += "\n  {";
+        mediaJson += "\"type\":\"photo\"";
+        mediaJson += ",\"media\":\"" + imgs[i] + "\"";
+        // Явно указываем has_spoiler как false
+        mediaJson += ",\"has_spoiler\":false";
+        mediaJson += "}";
+    }
+    mediaJson += "\n]";
+
+    // Добавляем media JSON
+    {
+        curl_mimepart* part = curl_mime_addpart(mime);
+        curl_mime_name(part, "media");
+        curl_mime_data(part, mediaJson.c_str(), CURL_ZERO_TERMINATED);
+    }
+
+
+    // Настраиваем обработку ответа
+    std::string response;
+    auto write_cb = +[](char* ptr, size_t size, size_t nmemb, void* userdata) -> size_t {
+        auto* out = static_cast<std::string*>(userdata);
+        out->append(ptr, size * nmemb);
+        return size * nmemb;
+        };
+
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_cb);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_MIMEPOST, mime);
+
+    // Выполняем запрос
+    CURLcode res = curl_easy_perform(curl);
+
+    if (res != CURLE_OK) {
+        curl_mime_free(mime);
+        curl_easy_cleanup(curl);
+        throw std::runtime_error("curl_easy_perform() failed: " + std::string(curl_easy_strerror(res)));
+    }
+
+    // Проверяем HTTP код ответа
+    long httpCode = 0;
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
+
+    // Очищаем ресурсы
+    curl_mime_free(mime);
+    curl_easy_cleanup(curl);
+
+    // Проверяем на ошибки HTTP
+    if (httpCode >= 400) {
+        throw std::runtime_error("HTTP error " + std::to_string(httpCode) + ": " + response);
+    }
+}
+
 static void updateV2() {
 
     try
     {
-        
+
+        vector<bool> isEnableGroup;
         int triesToSend = 0;//попытки отправки одному человеку
         int edgeGroup = 0;// кол-во файлов на буферную группу
+
         corps& corp = rb::corpss[rb::currentCorps];
 
         if (!rb::ErrorOnCore) {//расписание успешно обработано
@@ -413,12 +580,26 @@ static void updateV2() {
             {
                 int countG = 0, localCount = 0;//кол-во групп 1, кол-во групп 2
 
+                bool wdadwwww = 0;
+                for (auto& mPage : corp.pages) {
+                    if (!wdadwwww && mPage.IsNewPage)
+                        wdadwwww = 1;
+                }
+                isEnableGroup.assign(rb::Groups.size(), wdadwwww);
+
+                // Подсчёт
                 for (auto& mPage : corp.pages) {
                     if (!mPage.isEmpty) {
-                        for (int i = 0; i < mPage.groups.size(); i++)
-                            if (mPage.groups[i].isExists && !rb::DisabledGroups[i])
+                        for (int i = 0; i < mPage.groups.size(); i++) {
+                            if (mPage.groups[i].isExists && !rb::DisabledGroups[i]) {
                                 countG++;
 
+                                if (!isEnableGroup[i] && mPage.groups[i].changed)
+                                    isEnableGroup[i] = 1;
+                            }
+                                
+                        }
+                            
                         countG++;
                     }
                 }
@@ -428,14 +609,14 @@ static void updateV2() {
 
                 //отправка в группу
                 bool success = 0;
-                
+
                 for (auto& mPage : corp.pages) {
                     if (mPage.isEmpty)
                         continue;
 
 
                     for (int i = 0; i < mPage.groups.size(); i++) {
-                        try 
+                        try
                         {
                             auto& group = mPage.groups[i];
 
@@ -443,15 +624,17 @@ static void updateV2() {
                                 localCount++;
                                 group.idSpam = (localCount / countG) % cfg::GroupsForSpam.size();
 
-                                auto message = bot.getApi().sendPhoto(cfg::GroupsForSpam[group.idSpam], 
+                                auto message = bot.getApi().sendPhoto(cfg::GroupsForSpam[group.idSpam],
                                     TgBot::InputFile::fromFile(rb::imgPath + mPage.folderName + "\\" + rb::Groups1251[i] + ".png", "image/png"));
                                 group.messageId = message->messageId;
+                                group.ps = message->photo.back()->fileId;
 
 
-                                if (mPage.IsNewPage || group.changed) {
+                                if (isEnableGroup[i]) {
                                     auto message = bot.getApi().sendPhoto(cfg::GroupsForSpam[group.idSpam],
                                         TgBot::InputFile::fromFile(rb::imgPath + mPage.folderName + "\\" + rb::Groups1251[i] + "S.png", "image/png"));
                                     group.messageIdS = message->messageId;
+                                    group.psS = message->photo.back()->fileId;
                                 }
                             }
                         }
@@ -465,9 +648,10 @@ static void updateV2() {
                     while (!success) {
                         try
                         {
-                            auto message = bot.getApi().sendPhoto(cfg::GroupsForSpam[cfg::GroupsForSpam.size() - 1], 
+                            auto message = bot.getApi().sendPhoto(cfg::GroupsForSpam[cfg::GroupsForSpam.size() - 1],
                                 TgBot::InputFile::fromFile(rb::imgPath + mPage.folderName + ".png", "image/png"));
                             mPage.mi = message->messageId;
+                            mPage.ps = message->photo.back()->fileId;
                             success = 1;
                         }
                         catch (const std::exception& e)
@@ -481,9 +665,13 @@ static void updateV2() {
 
 
             logMessage("Отправка расписания людям", "system", 8);
+            std::vector<string> imgs;
+            std::vector<string> imgs2;
 
             //рассылка
             for (int i = 0; i < SubscribedUsers.size(); i++) {
+                imgs.clear();
+                imgs2.clear();
                 auto& us = SubscribedUsers[i];
                 triesToSend = 0;
                 try {
@@ -492,23 +680,35 @@ static void updateV2() {
                             continue;
 
                         if (us.group == -1) {// общее
-                            bot.getApi().copyMessage(us.tgId, cfg::GroupsForSpam[cfg::GroupsForSpam.size() - 1], mPage.mi);
+                            imgs.push_back(mPage.ps);
                         }
                         else if (us.mode == 0 && mPage.groups[us.group].isExists) {
-                            bot.getApi().copyMessage(us.tgId, cfg::GroupsForSpam[mPage.groups[us.group].idSpam], mPage.groups[us.group].messageId);
+                            imgs.push_back(mPage.groups[us.group].ps);
                         }
-                        else if (us.mode == 1 && mPage.groups[us.group].isExists && (mPage.IsNewPage || mPage.groups[us.group].changed)) {
-                            bot.getApi().copyMessage(us.tgId, cfg::GroupsForSpam[mPage.groups[us.group].idSpam], mPage.groups[us.group].messageIdS);
+                        else if (us.mode == 1 && mPage.groups[us.group].isExists && isEnableGroup[us.group]) {
+                            imgs.push_back(mPage.groups[us.group].psS);
                         }
                         else if (us.mode == 2 || us.mode == 3) {
                             if (mPage.Teachers.find(us.Tea) != mPage.Teachers.end())
-                                bot.getApi().sendPhoto(us.tgId, TgBot::InputFile::fromFile(rb::imgPath + mPage.folderName + "\\" + Utf8_to_cp1251(us.Tea.c_str()) + ".png", "image/png"));
+                                imgs2.push_back(rb::imgPath + mPage.folderName + "\\" + us.Tea + ".png");
                             else if (us.mode == 2)
-                                bot.getApi().copyMessage(us.tgId, cfg::GroupsForSpam[cfg::GroupsForSpam.size() - 1], mPage.mi);
+                                imgs2.push_back(rb::imgPath + mPage.folderName + ".png");
                         }
 
-                        triesToSend = 0;
                     }
+
+                    if (us.mode != 2 && us.mode != 3) {
+                        if(imgs.size() != 0)
+                            sendMediaGroup3(to_string(us.tgId), imgs);
+                        if(us.group == -1)
+                            bot.getApi().sendMessage(us.tgId, "Расписание " + to_string(corp.localOffset + 1) + " корпуса", 0, 0, NULL);
+                    }
+                    else if(imgs2.size() != 0){
+                        sendMediaGroup2(to_string(us.tgId), imgs2);
+                    }
+                        
+
+                    triesToSend = 0;
                 }
                 catch (const std::exception& e) {
                     string error = e.what();
@@ -526,7 +726,7 @@ static void updateV2() {
                         if (triesToSend > 20) {
                             logMessage("УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС 123!) " + (string)e.what() + " | " + to_string(SubscribedUsers[i].tgId), "system", 10);
                             try {
-                                bot.getApi().sendMessage(SubscribedUsers[i].tgId, "Простите за не удобство, попытка отправки расписания вам не удалась", false, 0);
+                                bot.getApi().sendMessage(SubscribedUsers[i].tgId, "Простите за не удобство, попытка отправки расписания вам не удалась", 0, 0);
                             }
                             catch (const std::exception& e) {
                                 error = e.what();
@@ -640,7 +840,7 @@ static void updateV2() {
                 }
                 success = 0;
             }
-            
+
             //рассылка
             for (int i = 0; i < SubscribedUsers.size(); i++) {
                 auto& us = SubscribedUsers[i];
@@ -670,7 +870,7 @@ static void updateV2() {
                             if (triesToSend > 20) {
                                 logMessage("УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС 123!) " + (string)e.what() + " | " + to_string(SubscribedUsers[i].tgId), "system", 10);
                                 try {
-                                    bot.getApi().sendMessage(SubscribedUsers[i].tgId, "Простите за не удобство, попытка отправки расписания вам не удалась", false, 0);
+                                    bot.getApi().sendMessage(SubscribedUsers[i].tgId, "Простите за не удобство, попытка отправки расписания вам не удалась", 0, 0);
                                 }
                                 catch (const std::exception& e) {
                                     error = e.what();
@@ -690,7 +890,7 @@ static void updateV2() {
                 }
             }
 
-            
+
             //удаление из группы
             {
                 int tryingToDelete = 0;
@@ -802,7 +1002,7 @@ static void updateV1() {
                         if (triesToSend > 20) {
                             logMessage("УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС 123!) " + (string)e.what() + " | " + to_string(SubscribedUsers[i].tgId), "system", 10);
                             try {
-                                bot.getApi().sendMessage(SubscribedUsers[i].tgId, "Простите за не удобство, попытка отправки расписания вам не удалась", false, 0);
+                                bot.getApi().sendMessage(SubscribedUsers[i].tgId, "Простите за не удобство, попытка отправки расписания вам не удалась", 0, 0);
                             }
                             catch (const std::exception& e) {
                                 error = e.what();
@@ -819,7 +1019,7 @@ static void updateV1() {
                         }
                     }
                 }
-                
+
             }
 
             //сохранение пользователей
@@ -862,7 +1062,7 @@ static void updateV1() {
                         if (triesToSend > 20) {
                             logMessage("УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС УЖАССССС 123!) " + (string)e.what() + " | " + to_string(SubscribedUsers[i].tgId), "system", 10);
                             try {
-                                bot.getApi().sendMessage(SubscribedUsers[i].tgId, "Простите за не удобство, попытка отправки расписания вам не удалась", false, 0);
+                                bot.getApi().sendMessage(SubscribedUsers[i].tgId, "Простите за не удобство, попытка отправки расписания вам не удалась", 0, 0);
                             }
                             catch (const std::exception& e) {
                                 error = e.what();
@@ -896,6 +1096,7 @@ static void updateV1() {
     sync::SyncMode = 0;
     sync::mtx1.unlock();
 }
+
 
 int main() {
     ShowWindow(GetConsoleWindow(), SW_HIDE);
@@ -998,7 +1199,7 @@ int main() {
         }
         else
             version = 2;
-        
+
         while (getline(ifs, str)) {
             if (str != "") {
                 myUser myU;
@@ -1042,12 +1243,12 @@ int main() {
     {
         ifstream ifs("..\\mut.txt");
         string str;
-        
+
         if (!ifs.is_open()) {
             ofstream ofs("..\\mut.txt");
             ofs.close();
         }
-        else 
+        else
             while (getline(ifs, str)) MutedUsers.insert(stoll(str));
 
         ifs.close();
@@ -1171,7 +1372,7 @@ int main() {
 #endif
     }
 
-    
+
     //запуск бота пользователем
     bot.getEvents().onCommand("start", [subscribeKeyboard, mainMenuKeyboard](TgBot::Message::Ptr message) {
         bool isUserSubs = find_if(SubscribedUsers.begin(), SubscribedUsers.end(),
@@ -1180,17 +1381,17 @@ int main() {
         try
         {
             if (!isUserSubs) {
-                bot.getApi().sendMessage(message->chat->id, cfg::StartText, false, 0, subscribeKeyboard);
+                bot.getApi().sendMessage(message->chat->id, cfg::StartText, 0, 0, subscribeKeyboard);
             }
             else {
-                bot.getApi().sendMessage(message->chat->id, "Вы уже запустили бота", false, 0, mainMenuKeyboard);
+                bot.getApi().sendMessage(message->chat->id, "Вы уже запустили бота", 0, 0, mainMenuKeyboard);
             }
         }
         catch (const std::exception& e)
         {
             logMessage("(9) EROR | " + (string)e.what() + " | by_user: " + to_string(message->chat->id), "system", 50);
         }
-    });
+        });
 
 
     //команды и меню
@@ -1226,7 +1427,7 @@ int main() {
                         string commandParam;
                         if (text.find(' ') != string::npos)
                             commandParam = text.substr(text.find(' ') + 1);
-                        
+
 
 
                         if (commandId == 0) {
@@ -1261,16 +1462,15 @@ int main() {
 
                             }
                         }
-
                         if (commandId == 1) {// группы
                             commandParam = formatG(commandParam);
                             int group = findGroup(commandParam);
-                            
+
                             if (commandParam == "") {
                                 answerText = "Добавьте группу в сообщение, пример:\n\"/команда ИСП-322р\"";
                             }
                             else if (group == -1) {
-                                answerText = "Группа "+ commandParam +" не найдена";
+                                answerText = "Группа " + commandParam + " не найдена";
                             }
                             else if (commandId2 == 0) { // sub_g
                                 answerText = "Вы подписались на расписание группы " + commandParam;
@@ -1295,36 +1495,38 @@ int main() {
                             }
 
                             if (commandId2 == 100) {// рассылка фото с группой
-                                bool isSanded = 0;
+                                vector <string> imgs;
 
                                 for (corps& corp : rb::corpss) {
                                     for (auto& page : corp.pages) {
                                         if (page.groups[group].isExists) {
-                                            bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile(rb::imgPath + page.folderName + "\\"
-                                                + rb::Groups1251[group] + ".png", "image/png"));
-                                            isSanded = 1;
+                                            imgs.push_back(rb::imgPath + page.folderName + "\\" + rb::Groups[group] + ".png");
                                         }
                                     }
                                 }
 
-                                if(!isSanded)
-                                    bot.getApi().sendMessage(userId, "Расписание для группы не найдено(", false, 0, NULL);
+                                if (!imgs.empty()) {
+                                    sendMediaGroup2(to_string(userId), imgs);
+                                }
+                                else
+                                    bot.getApi().sendMessage(userId, "Расписание для группы не найдено(", 0, 0, NULL);
                             }
                             else if (commandId2 == 101) {// рассылка маленького фото с группой
-                                bool isSanded = 0;
+                                vector <string> imgs;
 
                                 for (corps& corp : rb::corpss) {
                                     for (auto& page : corp.pages) {
                                         if (page.groups[group].isExists) {
-                                            bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile(rb::imgPath + page.folderName + "\\"
-                                                + rb::Groups1251[group] + "S.png", "image/png"));
-                                            isSanded = 1;
+                                            imgs.push_back(rb::imgPath + page.folderName + "\\" + rb::Groups[group] + "S.png");
                                         }
                                     }
                                 }
 
-                                if (!isSanded)
-                                    bot.getApi().sendMessage(userId, "Расписание для группы не найдено(", false, 0, NULL);
+                                if (!imgs.empty()) {
+                                    sendMediaGroup2(to_string(userId), imgs);
+                                }
+                                else
+                                    bot.getApi().sendMessage(userId, "Расписание для группы не найдено(", 0, 0, NULL);
                             }
                         }
                         else if (commandId == 2) {// преподаватели
@@ -1352,7 +1554,7 @@ int main() {
                             }
                             else if (isUnusualName) {
                                 bot.getApi().sendMessage(userId, "Предупреждение: \"" + commandParam + "\" - ФИО преподавателя выглядит не обычно,\
- оно не было замечено в пред идущих расписаниях, лучше перепроверьте его", false, 0, NULL);
+ оно не было замечено в пред идущих расписаниях, лучше перепроверьте его", 0, 0, NULL);
                             }
                             else if (commandId2 == 0) {
                                 answerText = "Вы подписались на расписание преподавателя " + commandParam;
@@ -1369,21 +1571,20 @@ int main() {
                             }
 
                             if (commandId2 == 100) {
-                                bool isSanded = 0;
+                                vector<string> imgs;
 
                                 for (corps& corp : rb::corpss) {
                                     for (auto& page : corp.pages) {
                                         if (page.Teachers.find(commandParam) != page.Teachers.end()) {
-                                            bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile(rb::imgPath + page.folderName + "\\"
-                                                + altTeacher + ".png", "image/png"));
-
-                                            isSanded = 1;
+                                            imgs.push_back(rb::imgPath + page.folderName + "\\" + commandParam + ".png");
                                         }
                                     }
                                 }
 
-                                if (!isSanded)
-                                    bot.getApi().sendMessage(userId, "Расписание для преподавателя не найдено(", false, 0, NULL);
+                                if (!imgs.empty())
+                                    sendMediaGroup2(to_string(userId), imgs);
+                                else
+                                    bot.getApi().sendMessage(userId, "Расписание для преподавателя не найдено(", 0, 0, NULL);
                             }
                         }
                         else if (commandId == 3) {
@@ -1394,16 +1595,28 @@ int main() {
                                 user->mode = 0;
                                 saveUsers();
                             }
-                            
+
+                            vector<string> imgs;
+
                             for (auto& corp : rb::corpss) {
+                                imgs.clear();
+
+
+
                                 for (auto& mPage : corp.pages) {
                                     if (mPage.isEmpty)
                                         continue;
 
-                                    bot.getApi().sendPhoto(userId,
-                                        TgBot::InputFile::fromFile(rb::imgPath + mPage.folderName + ".png", "image/png"));
+                                    imgs.push_back(rb::imgPath + mPage.folderName + ".png");
+                                }
+
+                                if (!imgs.empty()) {
+                                    sendMediaGroup2(to_string(userId), imgs);
+                                    bot.getApi().sendMessage(userId, "Расписание " + to_string(corp.localOffset + 1) + " корпуса", 0, 0, NULL);
                                 }
                             }
+
+                            
                         }
                         else if (commandId == 4) {
                             //{ "unsubscribe", { 4, 0 } },
@@ -1452,7 +1665,7 @@ int main() {
                                         }
                                     }
                                 }
-                                    
+
                                 if (!isValidUser) {
                                     answerText = "Вы должны быть подписаны хотя бы на одно расписание для преподавателей";
                                 }
@@ -1487,7 +1700,7 @@ int main() {
                             }
                             else if (commandId2 == 4) {// unbutton
                                 ReplyKeyboardRemove::Ptr removeKeyboard(new ReplyKeyboardRemove);
-                                bot.getApi().sendMessage(userId, "Клавиатура удалена\n\nЧто бы вернуть используйте /start", false, 0, removeKeyboard);
+                                bot.getApi().sendMessage(userId, "Клавиатура удалена\n\nЧто бы вернуть используйте /start", 0, 0, removeKeyboard);
                             }
 
                         }
@@ -1517,7 +1730,7 @@ int main() {
                                 bot.getApi().sendMessage(userId,
                                     escapeMarkdownV2("Версия бота: " + Version +
                                         "\nВладелец: ||" + to_string(cfg::RootTgId) + " @" + bot.getApi().getChat(cfg::RootTgId)->username +
-"||\nПоздравить с выпуском 4 курс:\n\"/happy\"\
+                                        "||\nПоздравить с выпуском 4 курс:\n\"/happy\"\
 \nРеклама \"/send_ad\"\
 \nМут /mut 123312321\
 \nРазмут /unmut 123312321\
@@ -1527,7 +1740,7 @@ int main() {
 \nИнфа по tgId /get_us\
 \nСтатистика /stats\
 \nПро доступ /info")
-, false, 0, nullptr, "MarkdownV2");
+, 0, 0, nullptr, "MarkdownV2");
                             }
                             else if (commandId2 == 2) {// stats
                                 int g = 0, go = 0, p = 0, o = 0;
@@ -1664,8 +1877,9 @@ int main() {
                                     for (const auto& us : SubscribedUsers) {
                                         if ((mode == 0 || mode == 1) && us.mode == 0 && us.group != -1) {// Группа
                                             try {
+                                                bot.getApi().sendMessage(us.tgId, "Попробуйте более удобный формат расписания для групп \
+(Рассписание будет приходить только при реальных изменениях для вашей группы)\n\nКоманда для этого:\n/sub_go", 0, 0);
                                                 bot.getApi().sendPhoto(us.tgId, TgBot::InputFile::fromFile("..\\imgs\\ad2.png", "image/png"));
-                                                bot.getApi().sendMessage(us.tgId, "Попробуйте более удобный формат расписания для групп\n\nКоманда для этого:\n/sub_go", false, 0);
                                             }
                                             catch (const std::exception& e) {
                                                 logMessage("124a) EROR | " + (string)e.what(), "system", 52);
@@ -1675,10 +1889,10 @@ int main() {
                                         }
                                         else if ((mode == 0 || mode == 2) && us.group == -1) {
                                             try {
-                                                bot.getApi().sendPhoto(us.tgId, TgBot::InputFile::fromFile("..\\imgs\\ad2.png", "image/png"));
-                                                bot.getApi().sendPhoto(us.tgId, TgBot::InputFile::fromFile("..\\imgs\\ad3.png", "image/png"));
                                                 bot.getApi().sendMessage(us.tgId, "Попробуйте более удобный формат расписания для групп / преподавателей\n\n\
-Команды для этого:\n/sub_go\nи\n/sub_p", false, 0);
+Команды для этого:\n/sub_go\nи\n/sub_p", 0, 0);
+                                                vector<string> imgs = { "..\\imgs\\ad2.png", "..\\imgs\\ad3.png" };
+                                                sendMediaGroup2(to_string(us.tgId), imgs);
                                             }
                                             catch (const std::exception& e) {
                                                 logMessage("124b) EROR | " + (string)e.what(), "system", 52);
@@ -1787,7 +2001,7 @@ PS. я бы мог реализовать кастомные текста, це�
                                 }
                             }
                             else if (commandId2 == 4) {
-                                
+
                                 if (commandParam == "") {
                                     answerText = "Пример:\n\"/happy Поздравляем с выпуском!\"\nЭта команда нужна для поздравления четверокурсников с выпуском! Можно использовать с 29.06 - 04.07";
                                 }
@@ -1800,11 +2014,11 @@ PS. я бы мог реализовать кастомные текста, це�
                                     int count = 0;
 
                                     if (true) {
-                                        
+
                                         for (const auto& us : SubscribedUsers) {
                                             if ((us.mode == 0 || us.mode == 1) && (rb::Groups[us.group][rb::Groups[us.group].find('-') + 1] == '4')) {
                                                 try {
-                                                    bot.getApi().sendMessage(us.tgId, commandParam, false, 0, NULL);
+                                                    bot.getApi().sendMessage(us.tgId, commandParam, 0, 0, NULL);
                                                 }
                                                 catch (const std::exception& e) {
                                                     logMessage("124) EROR | " + (string)e.what(), "system", 52);
@@ -1818,9 +2032,9 @@ PS. я бы мог реализовать кастомные текста, це�
                                     }
                                     else
                                         answerText = "Ещё не время(\nПодробнее: /happy";
-                                    
+
                                 }
-                                
+
 
                             }
                         }
@@ -1832,14 +2046,14 @@ PS. я бы мог реализовать кастомные текста, це�
 
                         // ответ пользователю текстом
                         if (answerText != "") {// текстовый ответ
-                            bot.getApi().sendMessage(userId, answerText, false, 0, NULL);
+                            bot.getApi().sendMessage(userId, answerText, 0, 0, NULL);
                         }
 
                         // неверная команда с /m
                         if (user->mode == 101) {
                             SubscribedUsers.erase(SubscribedUsers.begin() + UserNumber + UserNumbers.size() + 1);
                         }
-                        
+
                         // для логов
                         if (isStandartMessage != 0)
                             isStandartMessage = 2;
@@ -1859,25 +2073,25 @@ PS. я бы мог реализовать кастомные текста, це�
                         }
 
                         if (messageE.substr(messageE2.size() + 2) == "") {
-                            bot.getApi().sendMessage(userId, "Сообщение не должно быть пустым!", false, 0, NULL);
+                            bot.getApi().sendMessage(userId, "Сообщение не должно быть пустым!", 0, 0, NULL);
                             isOK = 0;
                         }
 
                         if (isOK) {
-                            bot.getApi().sendMessage(stoll(messageE2), messageE.substr(messageE2.size() + 2), false, 0);
-                            bot.getApi().sendMessage(userId, "Отправлено", false, 0, NULL);
+                            bot.getApi().sendMessage(stoll(messageE2), messageE.substr(messageE2.size() + 2), 0, 0);
+                            bot.getApi().sendMessage(userId, "Отправлено", 0, 0, NULL);
                         }
-                        
+
                     }
                     else if (userId == cfg::RootTgId && message->text[0] == ')' && message->text[1] == '(') {
                         string messageE = message->text.substr(2);
 
                         if (messageE != "") {
-                            bot.getApi().sendMessage(cfg::RootTgId, "начало", false, 0);
+                            bot.getApi().sendMessage(cfg::RootTgId, "начало", 0, 0);
 
                             for (auto& user : SubscribedUsers) {
                                 try {
-                                    bot.getApi().sendMessage(user.tgId, messageE, false, 0, mainMenuKeyboard);
+                                    bot.getApi().sendMessage(user.tgId, messageE, 0, 0, mainMenuKeyboard);
                                 }
                                 catch (const std::exception& e) {
                                     logMessage("124) EROR | " + (string)e.what(), "system", 52);
@@ -1885,29 +2099,29 @@ PS. я бы мог реализовать кастомные текста, це�
                                 }
                             }
 
-                            bot.getApi().sendMessage(cfg::RootTgId, "конец", false, 0);
+                            bot.getApi().sendMessage(cfg::RootTgId, "конец", 0, 0);
                         }
                         else
-                            bot.getApi().sendMessage(userId, "Сообщение не должно быть пустым!", false, 0, NULL);
+                            bot.getApi().sendMessage(userId, "Сообщение не должно быть пустым!", 0, 0, NULL);
                     }
                     else if (message->text == "Отписаться от расписания") {
-                        bot.getApi().sendMessage(userId, "Используйте команду /unsubscribe", false, 0, NULL);
+                        bot.getApi().sendMessage(userId, "Используйте команду /unsubscribe", 0, 0, NULL);
                     }
                     else if (message->text == "Подписаться на расписание группы") {
 
-                        bot.getApi().sendMessage(userId, "Пример:\n\"/sub_g ИСП-322р\"", false, 0, NULL);
+                        bot.getApi().sendMessage(userId, "Пример:\n\"/sub_g ИСП-322р\"", 0, 0, NULL);
                     }
                     else if (message->text == "Подписаться на отдельное расписание группы") {
 
-                        bot.getApi().sendMessage(userId, "Пример:\n\"/sub_go ИСП-322р\"", false, 0, NULL);
+                        bot.getApi().sendMessage(userId, "Пример:\n\"/sub_go ИСП-322р\"", 0, 0, NULL);
 
                     }
                     else if (message->text == "Подписаться на расписание преподавателя") {
 
-                        bot.getApi().sendMessage(userId, "Пример:\n\"/sub_p Ананьин Е.М.\"", false, 0, NULL);
+                        bot.getApi().sendMessage(userId, "Пример:\n\"/sub_p Ананьин Е.М.\"", 0, 0, NULL);
                     }
                     else if (message->text == "Подписаться на общее расписание") {
-                        bot.getApi().sendMessage(userId, "Используйте команду /sub_o", false, 0, NULL);
+                        bot.getApi().sendMessage(userId, "Используйте команду /sub_o", 0, 0, NULL);
                     }
                     else if (text == "Состояние подписки") {
                         string message, teacher;
@@ -1926,14 +2140,14 @@ PS. я бы мог реализовать кастомные текста, це�
                             teacher.insert(teacher.end() - 6, 32);
                             message = "Вы подписаны на расписание преподавателя с ФИО " + teacher + ", и получаете расписание двух корпусов";
                         }
-                            
+
 
                         else if (SubscribedUsers[UserNumber].mode == 3) {
                             teacher = SubscribedUsers[UserNumber].Tea;
                             teacher.insert(teacher.end() - 6, 32);
                             message = "Вы подписаны на расписание преподавателя с ФИО " + teacher + ", и получаете расписание только корпуса с вами";
                         }
-                            
+
 
                         if (UserNumbers.size() > 0) {
                             message += "\n\nДоп. подписки:";
@@ -1950,7 +2164,7 @@ PS. я бы мог реализовать кастомные текста, це�
 
                                 else if (SubscribedUsers[a].mode == 1)
                                     message += "Отдельное расписание группы " + rb::Groups[SubscribedUsers[a].group];
-                                
+
                                 else if (SubscribedUsers[a].mode == 2) {
                                     teacher = SubscribedUsers[a].Tea;
                                     teacher.insert(teacher.end() - 6, 32);
@@ -1962,31 +2176,31 @@ PS. я бы мог реализовать кастомные текста, це�
                                     teacher.insert(teacher.end() - 6, 32);
                                     message += "Расписание преподавателя с ФИО " + teacher + ", и получаете расписание только корпуса с вами";
                                 }
-                                    
+
                             }
                         }
 
-                        bot.getApi().sendMessage(userId, message, false, 0, NULL);
+                        bot.getApi().sendMessage(userId, message, 0, 0, NULL);
                     }
                     else if (message->text == "Расписание для групп") {
-                        
-                        bot.getApi().sendMessage(userId, "Переход выполнен", false, 0, raspisForGroupKeyboard);
+
+                        bot.getApi().sendMessage(userId, "Переход выполнен", 0, 0, raspisForGroupKeyboard);
                     }
                     else if (message->text == "Расписание для преподавателей") {
-                        
-                        bot.getApi().sendMessage(userId, "Переход выполнен", false, 0, raspisForTeacherKeyboard);
+
+                        bot.getApi().sendMessage(userId, "Переход выполнен", 0, 0, raspisForTeacherKeyboard);
                     }
                     else if (message->text == "Доп. подписка") {
 
-                        bot.getApi().sendMessage(userId, "Переход выполнен", false, 0, mSubscribeKeyboard);
+                        bot.getApi().sendMessage(userId, "Переход выполнен", 0, 0, mSubscribeKeyboard);
                     }
                     else if (message->text == "Посмотреть расписание") {
 
-                        bot.getApi().sendMessage(userId, "Переход выполнен", false, 0, getRaspisKeyboard);
+                        bot.getApi().sendMessage(userId, "Переход выполнен", 0, 0, getRaspisKeyboard);
                     }
                     else if (message->text == "Назад") {
 
-                        bot.getApi().sendMessage(userId, "Переход выполнен", false, 0, mainMenuKeyboard);
+                        bot.getApi().sendMessage(userId, "Переход выполнен", 0, 0, mainMenuKeyboard);
                     }
                     else if (message->text == "Посмотреть общее расписание") {
 
@@ -2001,34 +2215,34 @@ PS. я бы мог реализовать кастомные текста, це�
                         }
                     }
                     else if (message->text == "Посмотреть расписание преподавателя") {
-                        bot.getApi().sendMessage(userId, "Пример:\n\"/get_p Ананьин Е.М.\"", false, 0, NULL);
+                        bot.getApi().sendMessage(userId, "Пример:\n\"/get_p Ананьин Е.М.\"", 0, 0, NULL);
                     }
                     else if (message->text == "Посмотреть расписание группы") {
 
-                        bot.getApi().sendMessage(userId, "Пример:\n\"/get_g ИСП-322р\"", false, 0, NULL);
+                        bot.getApi().sendMessage(userId, "Пример:\n\"/get_g ИСП-322р\"", 0, 0, NULL);
                     }
                     else if (message->text == "Получать расписание и для другого корпуса") {
 
-                        bot.getApi().sendMessage(userId, "Используйте команду /t_dop", false, 0, NULL);
+                        bot.getApi().sendMessage(userId, "Используйте команду /t_dop", 0, 0, NULL);
                     }
                     else if (message->text == "Подписаться ещё на одно расписание") {
 
-                        bot.getApi().sendMessage(userId, "Используйте команду /m", false, 0, NULL);
+                        bot.getApi().sendMessage(userId, "Используйте команду /m", 0, 0, NULL);
                     }
                     else if (message->text == "Отписаться от одного из расписаний") {
 
-                        bot.getApi().sendMessage(userId, "Используйте команду /unm", false, 0, NULL);
+                        bot.getApi().sendMessage(userId, "Используйте команду /unm", 0, 0, NULL);
                     }
                     else if (message->text == "Вопросы и предложения") {
 
-                        bot.getApi().sendMessage(userId, "Нашли баг или есть вопросы / предложения по функционалу?\nПишите сюда: @wyanarba", false, 0);
+                        bot.getApi().sendMessage(userId, "Нашли баг или есть вопросы / предложения по функционалу?\nПишите сюда: @wyanarba", 0, 0);
                     }
 
                     else if (isStandartMessage == 1) isStandartMessage = 0;
                 }
                 else {
                     if (message->text == "Подписаться на расписание") {
-                        bot.getApi().sendMessage(userId, "Обработка...", false, 0, NULL);
+                        bot.getApi().sendMessage(userId, "Обработка...", 0, 0, NULL);
 
                         // Добавляем пользователя в список подписанных
                         if (!isUserSubs) {
@@ -2046,29 +2260,39 @@ PS. я бы мог реализовать кастомные текста, це�
 
                             saveUsers();
 
+                            vector<string> imgs;
+
                             for (auto& corp : rb::corpss) {
+                                imgs.clear();
+
+
+
                                 for (auto& mPage : corp.pages) {
                                     if (mPage.isEmpty)
                                         continue;
 
-                                    bot.getApi().sendPhoto(userId,
-                                        TgBot::InputFile::fromFile(rb::imgPath + mPage.folderName + ".png", "image/png"));
+                                    imgs.push_back(rb::imgPath + mPage.folderName + ".png");
+                                }
+
+                                if (!imgs.empty()) {
+                                    sendMediaGroup2(to_string(userId), imgs);
+                                    bot.getApi().sendMessage(userId, "Расписание " + to_string(corp.localOffset + 1) + " корпуса", 0, 0, NULL);
                                 }
                             }
                         }
-                        bot.getApi().sendMessage(userId, "Вы подписались на расписание.", false, 0, mainMenuKeyboard);
+                        bot.getApi().sendMessage(userId, "Вы подписались на расписание.", 0, 0, mainMenuKeyboard);
 
-                        bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile("..\\imgs\\ad2.png", "image/png"));
-                        bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile("..\\imgs\\ad3.png", "image/png"));
                         bot.getApi().sendMessage(userId, "Попробуйте более удобный формат расписания для групп / преподавателей\n\n\
-Команды для этого:\n/sub_go\nи\n/sub_p", false, 0);
+Команды для этого:\n/sub_go\nи\n/sub_p", 0, 0);
+                        vector<string> imgs = { "..\\imgs\\ad2.png", "..\\imgs\\ad3.png" };
+                        sendMediaGroup2(to_string(userId), imgs);
                     }
-                    else 
-                        bot.getApi().sendMessage(userId, "Сначала подпишитесь на расписание", false, 0, subscribeKeyboard);
+                    else
+                        bot.getApi().sendMessage(userId, "Сначала подпишитесь на расписание", 0, 0, subscribeKeyboard);
                 }
 
                 if (MutedUsers.find(userId) == MutedUsers.end()) {
-                    if(isStandartMessage != 0)
+                    if (isStandartMessage != 0)
                         logMessage(to_string(userId) + " | " + message->chat->username + " | " + message->text, "messages");
                     else
                         logMessage(to_string(userId) + " | " + message->chat->username + " | " + message->text, "otherMessages");

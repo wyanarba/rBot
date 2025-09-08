@@ -1,6 +1,7 @@
 #pragma once
 using namespace std;
-
+using namespace TgBot;
+namespace fs = std::filesystem;
 
 extern const std::string CurrentVersion;
 extern const std::string Version;
@@ -70,8 +71,11 @@ struct myGroup
     int idSpam;// номер буферной группы
     int32_t messageId = 0;//id сообщения
     int32_t messageIdS = 0;//id сообщения с мини расписанием
+    string ps, psS;// Картинки с расписанием
 
-    myGroup(const bool& isExists) : isExists(isExists) {}
+    myGroup(const bool& isExists) {
+        this->isExists = isExists;
+    }
 
     myGroup& operator=(bool value) {
         isExists = value;
@@ -85,6 +89,7 @@ struct pageRasp {
     bool IsNewPage = 0;// новая страница или обновление старой
     bool isEmpty = 1;// пуста ли папка
     int32_t mi = 0;//id сообщения
+    string ps;// Картинка
 
     vector<myGroup>groups;// группы
     set <string> Teachers;// преподаватели
