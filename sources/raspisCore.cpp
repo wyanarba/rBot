@@ -13,6 +13,7 @@
 
 using namespace cv;
 using namespace poppler;
+namespace fs = std::filesystem;
 
 
 struct myCoord
@@ -24,8 +25,8 @@ struct myCoord
 };
 
 
-const string CurrentVersion = "v3.81";
-const string Version = CurrentVersion + " (04.09.2024) скоро уже год?";
+const string CurrentVersion = "v3.9";
+const string Version = CurrentVersion + " (20.09.2025) поганые краши";
 
 string MainUrl = "https://rasp.vksit.ru/";
 const char UpdateCommand[17] = "start update.bat";
@@ -35,6 +36,11 @@ int CutsOffX = 0, CutsOffY = 0, LeftEdge = 0;
 
 // Скачивание файла с сайта
 static bool DownloadFileToMemory(const std::string& url, std::string& fileContent) {
+
+    /*if (rb::EnableMLog) {
+        logMessage("DownloadFileToMemory (" + url + ")", "mLog");
+    }*/
+
     HINTERNET hInternet = InternetOpen("File Downloader", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
     if (!hInternet) {
         logMessage("Failed to initialize InternetOpen.", "system", 201);
@@ -71,6 +77,11 @@ static bool DownloadFileToMemory(const std::string& url, std::string& fileConten
 
 // Запись строк (файлов .pdf) в файлы
 static bool WriteStringToFile(const std::string& content, const std::string& filePath) {
+
+    if (rb::EnableMLog) {
+        logMessage("WriteStringToFile (" + filePath + ")", "mLog");
+    }
+
     std::ofstream outFile(filePath, std::ios::binary);
     if (!outFile.is_open()) {
         logMessage("Failed to open file for writing.", "system", 203);
@@ -83,6 +94,11 @@ static bool WriteStringToFile(const std::string& content, const std::string& fil
 
 // Чтение строк (файлов .pdf) из файлов
 static bool ReadStringFromFile(const std::string& filePath, std::string& content) {
+
+    if (rb::EnableMLog) {
+        logMessage("ReadStringFromFile (" + filePath + ", " + ")", "mLog");
+    }
+
     std::ifstream inFile(filePath, std::ios::binary);
     if (!inFile.is_open()) {
         logMessage("Failed to open file for reading.", "system", 204);
@@ -97,6 +113,11 @@ static bool ReadStringFromFile(const std::string& filePath, std::string& content
 
 // Получение количества страниц в документе
 static int getPDFPageCount(const std::string& filePath) {
+
+    if (rb::EnableMLog) {
+        logMessage("getPDFPageCount (" + filePath + ")", "mLog");
+    }
+
     // Загружаем документ
     poppler::document* doc = poppler::document::load_from_file(filePath);
 
@@ -116,6 +137,11 @@ static int getPDFPageCount(const std::string& filePath) {
 
 // Рисование текста
 static void drawTextFT(cv::Mat& img, const std::string& aa, const std::string& fontPath, int fontSize, int x_center, int y_center) {
+
+    if (rb::EnableMLog) {
+        logMessage("drawTextFT ()", "mLog");
+    }
+
     // Конвертация из Windows-1251 в wstring
     int size_needed = MultiByteToWideChar(1251, 0, aa.c_str(), -1, nullptr, 0);
     std::wstring text(size_needed, 0);
@@ -202,6 +228,11 @@ static void drawTextFT(cv::Mat& img, const std::string& aa, const std::string& f
 
 
 static void postRaspis() {
+
+    if (rb::EnableMLog) {
+        logMessage("postRaspis ()", "mLog");
+    }
+
     sync::mtx1.lock();//отправляем сообщение боту и ожидаем завершения отправки расписания
     sync::SyncMode = 3;
     sync::mtx1.unlock();
@@ -217,6 +248,11 @@ static void postRaspis() {
 }
 
 static int findMajorityElement(const vector<int>& numbers) {
+
+    if (rb::EnableMLog) {
+        logMessage("findMajorityElement (" + to_string(numbers.size()) + ")", "mLog");
+    }
+
     map<int, int> frequency;
     for (int i = 0; i < numbers.size() - 1; i++) {
         frequency[numbers[i + 1] - numbers[i]]++;
@@ -234,6 +270,10 @@ static int findMajorityElement(const vector<int>& numbers) {
 }
 
 static std::vector<int> filterVector(const std::vector<int>& input, double thresholdFactor = 1) {
+
+    /*if (rb::EnableMLog) {
+        logMessage("filterVector (" + to_string(input.size()) + ")", "mLog");
+    }*/
 
     // Подсчёт частоты каждого числа
     std::map<int, int> frequency;
@@ -264,6 +304,11 @@ static std::vector<int> filterVector(const std::vector<int>& input, double thres
 
 
 static void editRaspis(string filePath) {
+
+    if (rb::EnableMLog) {
+        logMessage("editRaspis (" + filePath +")", "mLog");
+    }
+
     Mat image = imread(filePath);;
     int& imageHeight = image.rows, imageWidth = image.cols;
     int startX = imageWidth + 1, startY = imageHeight + 1, endX = 0, endY = 0;
@@ -365,6 +410,10 @@ static void editRaspis(string filePath) {
 }
 
 static void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
+
+    if (rb::EnableMLog) {
+        logMessage("getLocalRaspis (" + mPage.folderName + ", " + pdf_path + ", " + to_string(pageNum) + ")", "mLog");
+    }
 
     string imageName = rb::imgPath + mPage.folderName + ".png", folderToSave = rb::imgPath + mPage.folderName + "\\";
 
@@ -1011,23 +1060,6 @@ static void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
     }
     outputFile.close();  // Закрываем файл
 
-    ////проверка на наличие изменений
-    //if (!isNewFile){
-    //    Mat sImageLast = imread(folderToSave + "coper.png");
-
-    //    // Разделяем оба изображения на каналы
-    //    std::vector<cv::Mat> channels1, channels2;
-    //    cv::split(imageCoper, channels1);
-    //    cv::split(sImageLast, channels2);
-
-    //    // Сравниваем каждый канал
-    //    if (imageCoper.size() != sImageLast.size() || cv::countNonZero(channels1[0] != channels2[0]) != 0) {
-    //        mPage.isEmpty = 0;
-    //    }
-    //    else
-    //        mPage.isEmpty = 1;
-    //}
-
     //добавление рекламы
     if (cfg::EnableAd) {
         Mat adImg = imread("..\\imgs\\ad.png");//   ..\\imgs\\ad.png
@@ -1063,12 +1095,27 @@ void main2() {
             try {
                 // Обновление расписания
                 for (corps& corp : rb::corpss) {
+
+
                     if (!DownloadFileToMemory(MainUrl + corp.pdfFileName, FileDownloaded)) {
                         logMessage("Не удалось скачать файл с расписанием", "system", 120);
                         continue;
                     }
 
                     if (FileDownloaded != corp.LastFileD) {
+
+                        if (rb::EnableMLog) {
+                            logMessage("GetNewR st 1", "mLog");
+
+                            time_t t = time(nullptr);
+                            tm now = {};
+                            localtime_s(&now, &t);
+
+                            WriteStringToFile(FileDownloaded, "lastPdfs\\" +
+                                to_string(now.tm_year + 1900) + "." + to_string(now.tm_mon) + "." + to_string(now.tm_mday) + "---" + to_string(now.tm_hour) + "-" + to_string(now.tm_min) + "-" + to_string(now.tm_sec) + "_"
+                                + corp.pdfFileName);
+                        }
+
                         logMessage("Начало обработки нового расписания, " + to_string(corp.localOffset + 1) + " корпус", "system", 112);
 
                         WriteStringToFile(FileDownloaded, corp.pdfFileName);
@@ -1079,17 +1126,26 @@ void main2() {
                         if (pageCount > rb::pagesInBui)
                             logMessage("Больше максимума страниц, impossible", "system", 112);
 
-                        for (int i = pageCount + rb::pagesInBui * (corp.localOffset); i < rb::pagesInBui * (corp.localOffset + 1); i++) {
+                        if (rb::EnableMLog) {
+                            logMessage("GetNewR st 2", "mLog");
+                        }
+
+                        for (int i = pageCount + rb::pagesInBui * corp.localOffset; i < rb::pagesInBui * (corp.localOffset + 1); i++) {
 
                             for (const auto& entry : std::filesystem::directory_iterator(rb::imgPath + to_string(i))) {
-                                if (entry.is_regular_file()) {
+
+                                string currentFile = cp1251_to_utf8(entry.path().filename().string().c_str());
+
+                                if (entry.is_regular_file() && currentFile.find(".png") != string::npos) {
                                     std::filesystem::remove(entry.path());
                                 }
 
                             }
                         }
 
-
+                        if (rb::EnableMLog) {
+                            logMessage("GetNewR st 3", "mLog");
+                        }
 
                         //приостанавливаем бота
                         {
@@ -1108,6 +1164,10 @@ void main2() {
                             }
                         }
 
+                        if (rb::EnableMLog) {
+                            logMessage("GetNewR st 4", "mLog");
+                        }
+
                         // зачистка переменных корпуса
                         {
                             corp.pagesUse = 0;
@@ -1117,6 +1177,9 @@ void main2() {
 
                             rb::ErrorOnCore = 0;
                         }
+                        if (rb::EnableMLog) {
+                            logMessage("GetNewR st 5", "mLog");
+                        }
 
                         for (int i = 0; i < pageCount && i < rb::pagesInBui; i++) {
                             auto& page = corp.pages[i];
@@ -1125,6 +1188,10 @@ void main2() {
 
                             system(std::format("magick -density 400 {}[{}] -background white -flatten -quality 100 {}.png",
                                 corp.pdfFileName, i, rb::imgPath + page.folderName).c_str());
+
+                            if (rb::EnableMLog) {
+                                logMessage("GetNewR st 8", "mLog");
+                            }
 
                             //обрезка фото
                             try
@@ -1137,6 +1204,15 @@ void main2() {
                                 logMessage("Какой ужас! Скинь мне это tg: @wyanarba EROR: гет локал распис | " + (string)e.what(), "system", 113);
                                 rb::ErrorOnCore = 1;
                             }
+
+                            if (rb::EnableMLog) {
+                                logMessage("GetNewR st 7", "mLog");
+                            }
+                        }
+
+
+                        if (rb::EnableMLog) {
+                            logMessage("GetNewR st 8", "mLog");
                         }
 
                         //рассылка

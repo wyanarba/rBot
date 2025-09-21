@@ -53,4 +53,6 @@ namespace rb {
     vector<string> Groups;
     vector<string> Groups1251;
     vector<corps> corpss; // ну типа корпуса
+
+    bool EnableMLog = 1;// Доп. логирование
 }
