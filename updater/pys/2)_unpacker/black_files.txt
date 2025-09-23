@@ -1,3 +1,2 @@
 index.html
-bot\spo.pdf
-bot\npo.pdf
+..\bot\spo.pdf

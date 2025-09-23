@@ -650,7 +650,7 @@ void updateV2() {
                                 group.ps = message->photo.back()->fileId;
 
 
-                                if (mPage.IsNewPage || group.changed) {
+                                if (isEnableGroups[i]) {
                                     auto message = bot.getApi().sendPhoto(GroupsForSpam[group.idSpam],
                                         TgBot::InputFile::fromFile(rb::imgPath + mPage.folderName + "\\" + Groups1251[i] + "S.png", "image/png"));
                                     group.messageIdS = message->messageId;
@@ -709,6 +709,7 @@ void updateV2() {
                             imgs.push_back(mPage.groups[us.group].ps);
                         }
                         else if (us.mode == 1 && mPage.groups[us.group].isExists && isEnableGroups[us.group]) {
+                            cout << mPage.groups[us.group].psS << endl;
                             imgs.push_back(mPage.groups[us.group].psS);
                         }
                         else if (us.mode == 2 || us.mode == 3) {
