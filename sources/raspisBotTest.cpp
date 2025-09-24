@@ -46,6 +46,7 @@ vector<myCommand> Commands = {
     {"unsubscribe", "Отписаться от расписания"}
 };
 
+//тру команды
 map<string, vector<__int32>> Commands2{
     {"m", {0, 0}},
 
@@ -73,6 +74,7 @@ map<string, vector<__int32>> Commands2{
     {"tea", {5, 4}},
     {"get_us", {5, 5}},
     {"update", {5, 6}},
+    {"send_ad", {5, 7}},
 
     {"mut", {6, 0}},
     {"unmut", {6, 1}},
@@ -335,7 +337,7 @@ void updateUsersF(int version) {
 bool IsNormalCfg = getConfig("..\\config.txt");
 TgBot::Bot bot(BotKey);
 
-static void sendMediaGroup2(string chatId, vector<string>& imgs) {
+static void sendMediaGroup2(string chatId, vector<string>& imgs) { // по файлам с диска
 
     /*if (rb::EnableMLog) {
         logMessage("sendMediaGroup2 (" + chatId + ", " + to_string(imgs.size()) + ")", "mLog");
@@ -440,7 +442,7 @@ static void sendMediaGroup2(string chatId, vector<string>& imgs) {
     }
 }
 
-static void sendMediaGroup3(string chatId, vector<string>& imgs) {
+static void sendMediaGroup3(string chatId, vector<string>& imgs) { // по FileID
 
     /*if (rb::EnableMLog) {
         logMessage("sendMediaGroup3 (" + chatId + ", " + to_string(imgs.size()) + ")", "mLog");
@@ -709,7 +711,6 @@ void updateV2() {
                             imgs.push_back(mPage.groups[us.group].ps);
                         }
                         else if (us.mode == 1 && mPage.groups[us.group].isExists && isEnableGroups[us.group]) {
-                            cout << mPage.groups[us.group].psS << endl;
                             imgs.push_back(mPage.groups[us.group].psS);
                         }
                         else if (us.mode == 2 || us.mode == 3) {
@@ -787,7 +788,7 @@ void updateV2() {
                             if (group.isExists && !rb::DisabledGroups[i]) {
                                 bot.getApi().deleteMessage(GroupsForSpam[group.idSpam], group.messageId);
 
-                                if (mPage.IsNewPage || group.changed)
+                                if (isEnableGroups[i])
                                     bot.getApi().deleteMessage(GroupsForSpam[group.idSpam], group.messageIdS);
 
                                 tryingToDelete = 0;
@@ -1232,7 +1233,7 @@ int main() {
                 for (const auto& entry : fs::directory_iterator(rb::imgPath + page.folderName)) {
                     currentFile = cp1251_to_utf8(entry.path().filename().string().c_str());
 
-                    if (currentFile.find(".png") != string::npos) {
+                    if (currentFile.find(".png") != string::npos && currentFile.find("bin") == string::npos) {
                         currentFile = currentFile.erase(currentFile.size() - 4);
                         int groupId = findGroup(currentFile);
 
@@ -1531,8 +1532,6 @@ int main() {
 
                                         subscribedUsers.insert(subscribedUsers.begin() + UserNumber + UserNumbers.size() + 1, MyUs);
                                         user = &subscribedUsers[UserNumber + UserNumbers.size() + 1];
-
-                                        cout << 123123123;
                                     }
                                 }
 
@@ -1574,13 +1573,22 @@ int main() {
                             if (commandId2 == 100) {// рассылка фото с группой
                                 bool isSanded = 0;
 
+                                vector<string> imgs;
                                 for (corps& corp : rb::corpss) {
+
+                                    imgs.clear();
+
                                     for (auto& page : corp.pages) {
                                         if (page.groups[group].isExists) {
-                                            bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile(rb::imgPath + page.folderName + "\\"
-                                                + Utf8_to_cp1251(Groups[group].c_str()) + ".png", "image/png"));
-                                            isSanded = 1;
+
+                                            imgs.push_back(rb::imgPath + page.folderName + "\\" + Groups[group] + ".png");
                                         }
+                                    }
+
+                                    if (!imgs.empty()) {
+                                        sendMediaGroup2(to_string(userId), imgs);
+                                        isSanded = 1;
+                                        bot.getApi().sendMessage(userId, "Расписание " + to_string(corp.localOffset + 1) + " корпуса", 0, 0, NULL);
                                     }
                                 }
 
@@ -1590,13 +1598,22 @@ int main() {
                             else if (commandId2 == 101) {// рассылка маленького фото с группой
                                 bool isSanded = 0;
 
+                                vector<string> imgs;
                                 for (corps& corp : rb::corpss) {
+
+                                    imgs.clear();
+
                                     for (auto& page : corp.pages) {
                                         if (page.groups[group].isExists) {
-                                            bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile(rb::imgPath + page.folderName + "\\"
-                                                + Utf8_to_cp1251(Groups[group].c_str()) + "S.png", "image/png"));
-                                            isSanded = 1;
+
+                                            imgs.push_back(rb::imgPath + page.folderName + "\\" + Groups[group] + "S.png");
                                         }
+                                    }
+
+                                    if (!imgs.empty()) {
+                                        sendMediaGroup2(to_string(userId), imgs);
+                                        isSanded = 1;
+                                        bot.getApi().sendMessage(userId, "Расписание " + to_string(corp.localOffset + 1) + " корпуса", 0, 0, NULL);
                                     }
                                 }
 
@@ -1648,16 +1665,25 @@ int main() {
                             if (commandId2 == 100) {
                                 bool isSanded = 0;
 
+
+                                vector<string> imgs;
                                 for (corps& corp : rb::corpss) {
+
+                                    imgs.clear();
+
                                     for (auto& page : corp.pages) {
                                         if (page.Teachers.find(commandParam) != page.Teachers.end()) {
-                                            bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile(rb::imgPath + page.folderName + "\\"
-                                                + altTeacher + ".png", "image/png"));
-
-                                            isSanded = 1;
+                                            imgs.push_back(rb::imgPath + page.folderName + "\\" + commandParam + ".png");
                                         }
                                     }
+
+                                    if (!imgs.empty()) {
+                                        sendMediaGroup2(to_string(userId), imgs);
+                                        isSanded = 1;
+                                        bot.getApi().sendMessage(userId, "Расписание " + to_string(corp.localOffset + 1) + " корпуса", 0, 0, NULL);
+                                    }
                                 }
+
 
                                 if (!isSanded)
                                     bot.getApi().sendMessage(userId, "Расписание для преподавателя не найдено(", false, 0, NULL);
@@ -1672,15 +1698,25 @@ int main() {
                                 saveUsers();
                             }
                             
-                            for (auto& corp : rb::corpss) {
-                                for (auto& mPage : corp.pages) {
-                                    if (mPage.isEmpty)
+
+                            vector<string> imgs;
+                            for (corps& corp : rb::corpss) {
+
+                                imgs.clear();
+
+                                for (auto& page : corp.pages) {
+                                    if (page.isEmpty)
                                         continue;
 
-                                    bot.getApi().sendPhoto(userId,
-                                        TgBot::InputFile::fromFile(rb::imgPath + mPage.folderName + ".png", "image/png"));
+                                    imgs.push_back(rb::imgPath + page.folderName + ".png");
+                                }
+
+                                if (!imgs.empty()) {
+                                    sendMediaGroup2(to_string(userId), imgs);
+                                    bot.getApi().sendMessage(userId, "Расписание " + to_string(corp.localOffset + 1) + " корпуса", 0, 0, NULL);
                                 }
                             }
+
                         }
                         else if (commandId == 4) {
                             //{ "unsubscribe", { 4, 0 } },
@@ -1776,6 +1812,7 @@ int main() {
                             //{ "tea", {5, 4} },
                             //{ "get_us", {5, 5} },
                             //{ "update", {5, 6} },
+                            //{ "send_add", { 5, 7 } },
 
                             if (commandId2 == 0) {// qq
                                 if (commandParam == "1")
@@ -1930,6 +1967,49 @@ int main() {
                                 answerText = "Проверка обновления пройдёт скорее";
                                 tryesChek = 0;
                             }
+                            else if (commandId2 == 7) {
+
+                                if (commandParam.size() == 1 && commandParam[0] - '0' > -1 && commandParam[0] - '0' < 3) {
+
+                                    int count = 0;
+                                    int mode = commandParam[0] - '0';
+
+                                    for (const auto& us : subscribedUsers) {
+                                        if ((mode == 0 || mode == 1) && us.mode == 0 && us.group != -1) {// Группа
+                                            try {
+                                                bot.getApi().sendMessage(us.tgId, "Попробуйте более удобный формат расписания для групп \
+(Расписание будет приходить только при реальных изменениях для вашей группы)\n\nКоманда для этого:\n/sub_go", 0, 0);
+                                                bot.getApi().sendPhoto(us.tgId, TgBot::InputFile::fromFile("..\\imgs\\ad2.png", "image/png"));
+                                            }
+                                            catch (const std::exception& e) {
+                                                logMessage("124a) EROR | " + (string)e.what(), "system", 52);
+                                            }
+
+                                            count++;
+                                        }
+                                        else if ((mode == 0 || mode == 2) && us.group == -1) {
+                                            try {
+                                                bot.getApi().sendMessage(us.tgId, "Попробуйте более удобный формат расписания для групп / преподавателей\n\n\
+Команды для этого:\n/sub_go\nи\n/sub_p", 0, 0);
+                                                vector<string> imgs = { "..\\imgs\\ad2.png", "..\\imgs\\ad3.png" };
+                                                sendMediaGroup2(to_string(us.tgId), imgs);
+                                            }
+                                            catch (const std::exception& e) {
+                                                logMessage("124b) EROR | " + (string)e.what(), "system", 52);
+                                            }
+
+                                            count++;
+                                        }
+                                    }
+
+                                    answerText = "Рассылка прошла успешно!\nОтправлено: " + to_string(count) + " людям!";
+                                }
+                                else {
+                                    answerText = "Пример:\n\"/send_ad 1\"\n0 - общий режим\n1 - пользователям с sub_g\n2 - пользователям с sub_o\n\n\
+Не следует слишком часто использовать эти команды, лучше всего как мне кажется - раз в месяц в четверг - пятницу, до рассылки настоящего расписания, часов в 10 - 11\n\n\
+PS. я бы мог реализовать кастомные текста, цели, картинки, но мне кажется, что это лишь не нужное усложнение";
+                                }
+                                }
                         }
                         else if (commandId == 6 && userId == RootTgId) {
                             //{ "mut", { 6, 0 } },
@@ -2021,11 +2101,11 @@ int main() {
                                 }
                             }
                             else if (commandId2 == 4) {
-                                
+
                                 if (commandParam == "") {
-                                    answerText = "Пример:\n\"/happy да\"\nЭта команда нужна для поздравления четверокурсников с выпуском! Можно использовать с 29.06 - 04.07";
+                                    answerText = "Пример:\n\"/happy Поздравляем с выпуском!\"\nЭта команда нужна для поздравления четверокурсников с выпуском! Можно использовать с 29.06 - 04.07";
                                 }
-                                else if (commandParam == "да") {
+                                else if (commandParam != "") {
                                     //получение даты
                                     time_t t = time(nullptr);
                                     tm now = {};
@@ -2034,10 +2114,16 @@ int main() {
                                     int count = 0;
 
                                     if ((now.tm_mon == 5 && now.tm_mday > 28) || (now.tm_mon == 6 && now.tm_mday < 5)) {
-                                        
+
                                         for (const auto& us : subscribedUsers) {
                                             if ((us.mode == 0 || us.mode == 1) && (Groups[us.group][Groups[us.group].find('-') + 1] == '4')) {
-                                                bot.getApi().sendMessage(us.tgId, "Поздравляем с выпуском!", false, 0, NULL);
+                                                try {
+                                                    bot.getApi().sendMessage(us.tgId, commandParam, 0, 0, NULL);
+                                                }
+                                                catch (const std::exception& e) {
+                                                    logMessage("124) EROR | " + (string)e.what(), "system", 52);
+                                                }
+
                                                 count++;
                                             }
                                         }
@@ -2046,11 +2132,10 @@ int main() {
                                     }
                                     else
                                         answerText = "Ещё не время(\nПодробнее: /happy";
-                                    
-                                }
-                                
 
+                                }
                             }
+
                         }
                         else {
                             isStandartMessage = 0;
@@ -2218,13 +2303,21 @@ int main() {
                     }
                     else if (message->text == "Посмотреть общее расписание") {
 
-                        for (auto& corp : rb::corpss) {
-                            for (auto& mPage : corp.pages) {
-                                if (mPage.isEmpty)
+                        vector<string> imgs;
+                        for (corps& corp : rb::corpss) {
+
+                            imgs.clear();
+
+                            for (auto& page : corp.pages) {
+                                if (page.isEmpty)
                                     continue;
 
-                                bot.getApi().sendPhoto(userId,
-                                    TgBot::InputFile::fromFile(rb::imgPath + mPage.folderName + ".png", "image/png"));
+                                imgs.push_back(rb::imgPath + page.folderName + ".png");
+                            }
+
+                            if (!imgs.empty()) {
+                                sendMediaGroup2(to_string(userId), imgs);
+                                bot.getApi().sendMessage(userId, "Расписание " + to_string(corp.localOffset + 1) + " корпуса", 0, 0, NULL);
                             }
                         }
                     }
@@ -2274,21 +2367,30 @@ int main() {
 
                             saveUsers();
 
-                            for (auto& corp : rb::corpss) {
-                                for (auto& mPage : corp.pages) {
-                                    if (mPage.isEmpty)
+                            vector<string> imgs;
+                            for (corps& corp : rb::corpss) {
+
+                                imgs.clear();
+
+                                for (auto& page : corp.pages) {
+                                    if (page.isEmpty)
                                         continue;
 
-                                    bot.getApi().sendPhoto(userId,
-                                        TgBot::InputFile::fromFile(rb::imgPath + mPage.folderName + ".png", "image/png"));
+                                    imgs.push_back(rb::imgPath + page.folderName + ".png");
+                                }
+
+                                if (!imgs.empty()) {
+                                    sendMediaGroup2(to_string(userId), imgs);
+                                    bot.getApi().sendMessage(userId, "Расписание " + to_string(corp.localOffset + 1) + " корпуса", 0, 0, NULL);
                                 }
                             }
                         }
                         bot.getApi().sendMessage(userId, "Вы подписались на расписание.", false, 0, mainMenuKeyboard);
 
-                        bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile("..\\imgs\\ad2.png", "image/png"));
-                        bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile("..\\imgs\\ad3.png", "image/png"));
-                        bot.getApi().sendMessage(userId, "Попробуйте более удобный формат расписания для групп / преподавателей.", false, 0);
+                        bot.getApi().sendMessage(userId, "Попробуйте более удобный формат расписания для групп / преподавателей\n\n\
+Команды для этого:\n/sub_go\nи\n/sub_p", 0, 0);
+                        vector<string> imgs = { "..\\imgs\\ad2.png", "..\\imgs\\ad3.png" };
+                        sendMediaGroup2(to_string(userId), imgs);
                     }
                     else 
                         bot.getApi().sendMessage(userId, "Сначала подпишитесь на расписание", false, 0, subscribeKeyboard);

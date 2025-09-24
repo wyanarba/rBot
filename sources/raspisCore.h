@@ -1,8 +1,8 @@
 #pragma once
 //123
 
-const string CurrentVers = "v3.4_3";
-const string version = CurrentVers + " (28.06.2024) доведение до ума";
+const string CurrentVers = "v3.4_4";
+const string version = CurrentVers + " (24.09.2025) надеюсь вылетов больше не будет)";
 
 string FirstUrl = "https://rasp.vksit.ru/";
 //https://wyanarba.github.io/rBot/
@@ -891,20 +891,11 @@ void main2() {
 
                         int pageCount = getPDFPageCount(corp.pdfFileName);
 
-                        if (pageCount > rb::pagesInBui)
+                        if (pageCount > rb::pagesInBui) {
                             logMessage("Больше максималки страниц, impossible", "system", 112);
-
-                        for (int i = pageCount + rb::pagesInBui * (corp.localOffset); i < rb::pagesInBui * (corp.localOffset + 1); i++) {
-
-                            for (const auto& entry : std::filesystem::directory_iterator(rb::imgPath + to_string(i))) {
-                                if (entry.is_regular_file()) {
-                                    std::filesystem::remove(entry.path());
-                                }
-
-                            }
+                            pageCount = rb::pagesInBui;
                         }
-
-                        
+                            
 
                         //приостанавливаем бота
                         {
@@ -922,6 +913,19 @@ void main2() {
                                 rb::mtx1.unlock();
                             }
                         }
+
+                        for (int i = pageCount + rb::pagesInBui * (corp.localOffset); i < rb::pagesInBui * (corp.localOffset + 1); i++) {
+
+                            for (const auto& entry : std::filesystem::directory_iterator(rb::imgPath + to_string(i))) {
+                                
+                                string currentFile = cp1251_to_utf8(entry.path().filename().string().c_str());
+
+                                if (entry.is_regular_file() && currentFile.find(".png") != string::npos) {
+                                    std::filesystem::remove(entry.path());
+                                }
+                            }
+                        }
+
 
                         // зачистка переменных корпуса
                         {
