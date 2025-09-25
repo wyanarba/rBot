@@ -75,6 +75,7 @@ map<string, vector<__int32>> Commands2{
     {"get_us", {5, 5}},
     {"update", {5, 6}},
     {"send_ad", {5, 7}},
+    {"getPdfs", {5, 8}},
 
     {"mut", {6, 0}},
     {"unmut", {6, 1}},
@@ -118,10 +119,42 @@ void (*update)();//функция для отправки расписания, 
 //bool EnableAd = 1;
 //bool EnableAutoUpdate = 1;
 
-//bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile("1.png", "image/png"));
-//bot.getApi().sendPhoto(userId, TgBot::InputFile::fromFile("2.png", "image/png"));
+
+static LONG WINAPI crashHandler(EXCEPTION_POINTERS* info) {
+
+    // Сообщение о краше
+    string crashMsg = "\n=== CRASH ===\n";
+    crashMsg += "Code: 0x" + std::to_string(info->ExceptionRecord->ExceptionCode) + "\n";
+    crashMsg += "Address: 0x" + std::to_string((uintptr_t)info->ExceptionRecord->ExceptionAddress) + "\n";
+    crashMsg += "=============";
+    logMessage(crashMsg, "system");
+
+
+    // Запись вызовов
+    if (!rb::mLogIsEnabled) {
+        crashMsg = "Вызовы:\n";
+        while (!rb::callsLogQueue.empty()) {
+            crashMsg += rb::callsLogQueue.front() + '\n';
+            rb::callsLogQueue.pop();
+        }
+        logMessage(crashMsg, "system");
+        crashMsg += "\n\n\n\n\n--- Конец вызовов ---\n\n\n\n\n";
+    }
+
+
+    // Запись переменных в json
+    // Далее...
+
+
+    // Рестарт
+    system("start restarter.exe");
+    return EXCEPTION_EXECUTE_HANDLER;
+}
 
 string formatG(string str) {
+
+    logCall(std::format("formatG({})", str));
+
     if (str == "")
         return "";
 
@@ -166,6 +199,9 @@ string formatG(string str) {
 }
 
 string formatT(string str) {
+
+    logCall(std::format("formatT({})", str));
+
     if (str == "")
         return "";
 
@@ -196,6 +232,9 @@ string formatT(string str) {
 }
 
 __int32 findCommand(string message, int& param2) {
+
+    logCall(std::format("findCommand('{}', {})", message, param2));
+
     if (message.find(' ') != string::npos)
         message = message.substr(1, message.find(' ') - 1);
     else
@@ -215,11 +254,17 @@ __int32 findCommand(string message, int& param2) {
 }
 
 std::string escapeMarkdownV2(const std::string& text) {
+
+    logCall(std::format("escapeMarkdownV2('{}')", text));
+
     static const std::regex specialChars(R"([_*\[\]()~`>#+\-={}.!])");
     return std::regex_replace(text, specialChars, R"(\$&)");
 }
 
 bool getConfig(string confName) {
+
+    logCall(std::format("getConfig('{}')", confName));
+
     ifstream configIfs(confName);
     string line;
 
@@ -273,6 +318,8 @@ bool getConfig(string confName) {
 
 void saveUsers() {
 
+    logCall(std::format("saveUsers()"));
+
     for (int i = 0; i < rb::DisabledGroups.size(); i++)
         rb::DisabledGroups[i] = 1;
 
@@ -293,6 +340,9 @@ void saveUsers() {
 
 //0 - мут, 1 - бан
 void saveBadUsers(int8_t mode) {
+
+    logCall(std::format("saveBadUsers({})", mode));
+
     if (mode == 0) {
         std::ofstream outputFile("..\\mut.txt");
         for (const auto& us : mutedUsers) {
@@ -310,6 +360,9 @@ void saveBadUsers(int8_t mode) {
 }
 
 void updateUsersF(int version) {
+
+    logCall(std::format("updateUsersF({})", version));
+
     if (version == 0) {
         const vector<string> oldGroups = { "ДО-124", "ДО-223", "ДО-322", "ДО-421", "ИИС-124", "ИИС-223", "ИИС-322", "ИИС-421", "ИКС-124",
             "ИКС-223", "ИКС-322", "ИКС-421", "ИСП-124а", "ИСП-124ир", "ИСП-124ис", "ИСП-124п", "ИСП-124р", "ИСП-124т", "ИСП-223а",
@@ -1177,6 +1230,7 @@ int main() {
     ShowWindow(GetConsoleWindow(), SW_HIDE);
     SetConsoleCP(CP_UTF8);
     SetConsoleOutputCP(CP_UTF8);
+    SetUnhandledExceptionFilter(crashHandler);
 
     //чтение конфига
     if (!IsNormalCfg) {
@@ -1450,6 +1504,9 @@ int main() {
     
     //запуск бота пользователем
     bot.getEvents().onCommand("start", [subscribeKeyboard, mainMenuKeyboard](TgBot::Message::Ptr message) {
+
+        logCall(std::format("onCommandStart({}, '{}')", message->chat->id, message->text));
+
         bool isUserSubs = find_if(subscribedUsers.begin(), subscribedUsers.end(),
             [message](const myUser& obj) { return obj.tgId == message->chat->id; }) != subscribedUsers.end();
 
@@ -1471,6 +1528,9 @@ int main() {
 
     //команды и меню
     bot.getEvents().onAnyMessage([subscribeKeyboard, mainMenuKeyboard, raspisForGroupKeyboard, raspisForTeacherKeyboard, getRaspisKeyboard, mSubscribeKeyboard](TgBot::Message::Ptr message) {
+
+        logCall(std::format("onAnyMessage({}, '{}')", message->chat->id, message->text));
+
         try
         {
             if (blockedUsers.find(message->chat->id) == blockedUsers.end()) {
@@ -1813,6 +1873,7 @@ int main() {
                             //{ "get_us", {5, 5} },
                             //{ "update", {5, 6} },
                             //{ "send_add", { 5, 7 } },
+                            //{ "getPdfs", {5, 8} },
 
                             if (commandId2 == 0) {// qq
                                 if (commandParam == "1")
@@ -1823,6 +1884,8 @@ int main() {
                                     bot.getApi().sendDocument(userId, TgBot::InputFile::fromFile("..\\spamText.txt", "text/plain"));
                                 else if (commandParam == "4")
                                     bot.getApi().sendDocument(userId, TgBot::InputFile::fromFile("..\\updater\\log.txt", "text/plain"));
+                                else if (commandParam == "5")
+                                    bot.getApi().sendDocument(userId, TgBot::InputFile::fromFile("..\\mLog.txt", "text/plain"));
                                 else
                                     answerText = "Пример|\n\"/qq 1\"\nНомера расписаны в /info";
                             }
@@ -2010,6 +2073,51 @@ int main() {
 PS. я бы мог реализовать кастомные текста, цели, картинки, но мне кажется, что это лишь не нужное усложнение";
                                 }
                                 }
+                            else if (commandId2 == 8) {
+                                if (commandParam == "") {
+                                    answerText = "Пример:\n\"/getPdfs 10\"\n10 - кол-во файлов\n\nПолучить последние файлы с расписанием 1 - 30шт.";
+                                }
+                                else {
+                                    int count = stoi(commandParam);
+
+                                    if (count < 1 || count > 30) {
+                                        answerText = "Неверное количество";
+                                    }
+                                    else {
+                                        vector<fs::path> files;
+                                        string directoryPath = "lastPdfs";
+
+                                        // Проверяем, существует ли директория
+                                        if (!fs::exists(directoryPath) || !fs::is_directory(directoryPath)) {
+                                            std::cerr << "Директория не существует: " << directoryPath << std::endl;
+                                            return;
+                                        }
+
+                                        // Собираем все файлы (не директории) из папки
+                                        for (const auto& entry : fs::directory_iterator(directoryPath)) {
+                                            if (entry.is_regular_file()) {
+                                                files.push_back(entry.path());
+                                            }
+                                        }
+
+                                        // Сортируем по имени файла (возрастание)
+                                        std::sort(files.begin(), files.end(), [](const fs::path& a, const fs::path& b) {
+                                            return a.filename() < b.filename();
+                                            });
+
+                                        // Берем последние n файлов
+                                        if (files.size() > count) {
+                                            files = std::vector<fs::path>(files.end() - count, files.end());
+                                        }
+
+                                        for (auto& file : files) {
+                                            //cout << file << endl;
+
+                                            bot.getApi().sendDocument(userId, TgBot::InputFile::fromFile(file.string(), "text/plain"));
+                                        }
+                                    }
+                                }
+                            }
                         }
                         else if (commandId == 6 && userId == RootTgId) {
                             //{ "mut", { 6, 0 } },

@@ -1,8 +1,8 @@
 #pragma once
 //123
 
-const string CurrentVers = "v3.4_4";
-const string version = CurrentVers + " (24.09.2025) надеюсь вылетов больше не будет)";
+const string CurrentVers = "v3.4_5";
+const string version = CurrentVers + " (26.09.2025) снова?, больше логов)";
 
 string FirstUrl = "https://rasp.vksit.ru/";
 //https://wyanarba.github.io/rBot/
@@ -34,6 +34,8 @@ set <string>spamText;
 string FileD;//файлы .pdf с расписанием
 
 void postRaspis() {
+    logCall(std::format("postRaspis()"));
+
     rb::mtx1.lock();//отправляем сообщение боту и ожидаем завершения отправки расписания
     rb::syncMode = 3;
     rb::mtx1.unlock();
@@ -102,6 +104,7 @@ void editRaspis(string filePath) {
     Vec3b pixel;
     int margin, marginTop;//отступ по краям
     int wLine = 50;//ширина левой линии
+    logCall("editRasp st 1");
 
     //поиск startX
     for (int i = 0; i < imageHeight; i++) {// x - j, y - i
@@ -181,22 +184,26 @@ void editRaspis(string filePath) {
         }
     }
 
+    logCall("editRasp st 2");
+
     if (wLine < 3 || wLine > 40)
         wLine = 7;
 
     margin = wLine * 1.7;
     marginTop = margin * 2;
 
-
+    logCall("editRasp st 3");
     cv::Rect roi(startX - margin, startY - marginTop, endX - startX + 2 * margin, endY - startY + margin + marginTop); // x, y, width, height
     cv::imwrite(filePath, image(roi)); // Сохранение изображения
 
     cutsOffX = startX - margin;
     cutsOffY = startY - marginTop;
     leftEdge = margin;
+    logCall("editRasp st 4");
 }
 
 void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
+    logCall("getLocRasp st 1");
 
     string imageName = rb::imgPath + mPage.folderName + ".png", folderToSave = rb::imgPath + mPage.folderName + "\\";
 
@@ -225,14 +232,16 @@ void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
         logMessage("Ошибка открытия страницы ", "system");
     }
 
+    logCall("getLocRasp st 2");
+
     //извлечение текста с координатами
     auto text_boxes = page->text_list();
-
+    logCall("getLocRasp st 3");
 
     image = imread(imageName); // загрузка изображения
     image.copyTo(imageCoper);
     image.copyTo(imageCoper2);
-
+    logCall("getLocRasp st 4");
 
 
     //поиск перекрёстных точек
@@ -319,7 +328,7 @@ void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
         //фильтрация результата
         sort(xDots[2].begin(), xDots[2].end());
         sort(yDots[2].begin(), yDots[2].end());
-
+        logCall("getLocRasp st 5");
 
         for (int i = 0; i < xDots[2].size() - 1; i++) {
             xDots[3].push_back(xDots[2][i]);
@@ -381,7 +390,7 @@ void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
                 }
             }
         }*/
-
+        logCall("getLocRasp st 6");
     }
 
     //костыльчик
@@ -397,13 +406,16 @@ void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
                 extremDotsI.push_back(i);
             }
         }
+        logCall("getLocRasp st 7");
 
         extremDotsI.push_back(yDots[0].size() - 1);
+        logCall("getLocRasp st 8");
     }
 
 
     //проверка на изменение файла, полностью новое расписание или не большое изменение расписания
     {
+        
         Mat mat1 = imread(folderToSave + "coper.png");
         Mat mat2 = image(cv::Rect(0, 0, image.cols, yDots[0][0]));
 
@@ -428,6 +440,8 @@ void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
             isNewFile = 0;
 
         isNewFile = !isNewFile;
+
+        logCall("getLocRasp st 9");
 
         if (isNewFile)
             logMessage("Полностью новое", "system");
@@ -462,6 +476,7 @@ void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
                 }
             }
         }
+        logCall("getLocRasp st 10");
     }
 
 
@@ -555,6 +570,8 @@ void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
 
         cv::addWeighted(overlay, 0.60, imageCoper2, 1 - 0.60, 0, imageCoper2);
 
+        logCall("getLocRasp st 11");
+
         //динамические отступы
         if (xDots[1][0] - xDots[0][0] < 3 || xDots[1][0] - xDots[0][0] > 40) {
             padding = 7;
@@ -569,6 +586,7 @@ void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
         int fsize = timeImage.rows * frCoof;
         corpsNumImage = cv::Mat(timeImage.rows, timeImage.cols, CV_8UC3, cv::Scalar(255, 255, 255));
         drawTextFT(corpsNumImage, Utf8_to_cp1251((corpsNum + " корпус").c_str()), "times.ttf", fsize, timeImage.cols / 2, timeImage.rows / 2);
+        logCall("getLocRasp st 12");
     }
 
     //костыльчик #2
@@ -578,7 +596,6 @@ void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
     {
         Mat overlay2, overlay3;
         imageCoper2.copyTo(overlay2), imageCoper.copyTo(overlay3);
-
 
 
         for (int dwaoijawp = 0; dwaoijawp < text_boxes.size(); dwaoijawp++) {
@@ -819,9 +836,11 @@ void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
                 cv::rectangle(overlay2, roi3, { 0, 255, 0 }, cv::FILLED);
             }
         }
+        logCall("getLocRasp st 13");
 
         cv::addWeighted(overlay3, 0.20, imageCoper, 1 - 0.20, 0, imageCoper);
         cv::addWeighted(overlay2, 0.50, imageCoper2, 1 - 0.50, 0, imageCoper2);
+        logCall("getLocRasp st 14");
     }
 
     //сохранение картинок с преподавателями
@@ -835,6 +854,7 @@ void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
         if (rb::AllTeachers.find(teacher.first) == rb::AllTeachers.end())
             rb::AllTeachers.insert(teacher.first);
     }
+    logCall("getLocRasp st 15");
 
     //запись учителей
     std::ofstream outputFile(rb::imgPath + "4\\t.txt");
@@ -842,6 +862,7 @@ void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
         outputFile << tea << '\n';
     }
     outputFile.close();  // Закрываем файл
+    logCall("getLocRasp st 16");
 
     //добавление рекламы
     if (EnableAd) {
@@ -857,13 +878,14 @@ void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
             cv::imwrite(imageName, image);
         }
     }
-
+    logCall("getLocRasp st 17");
 
     delete page;
 
     //сохранение мусора ;)
     cv::imwrite(folderToSave + "coper.png", imageCoper);
     cv::imwrite(folderToSave + "coper2.png", imageCoper2);
+    logCall("getLocRasp st 18");
 }
 
 void main2() {
@@ -878,6 +900,7 @@ void main2() {
             try {
                 // Обновление расписания
                 for (corps& corp : rb::corpss) {
+
                     if (!DownloadFileToMemory(FirstUrl + corp.pdfFileName, FileD)) {
                         logMessage("Не удалось скачать файл с расписанием", "system", 120);
                         continue;
@@ -886,10 +909,22 @@ void main2() {
                     if (FileD != corp.LastFileD) {
                         logMessage("Начало обработки нового расписания, " + to_string(corp.localOffset + 1) + " корпус", "system", 112);
 
+                        if (rb::mLogIsEnabled) {
+                            time_t t = time(nullptr);
+                            tm now = {};
+                            localtime_s(&now, &t);
+
+                            WriteStringToFile(FileD, "lastPdfs\\" +
+                                to_string(now.tm_year + 1900) + "." + to_string(now.tm_mon) + "." + to_string(now.tm_mday) + "---" + to_string(now.tm_hour) + "-" + to_string(now.tm_min) + "-" + to_string(now.tm_sec) + "_"
+                                + corp.pdfFileName);
+                        }
+
+                        logCall("NewRasp st 1");
                         WriteStringToFile(FileD, corp.pdfFileName);
                         corp.LastFileD = FileD;
 
                         int pageCount = getPDFPageCount(corp.pdfFileName);
+                        logCall(std::format("NewRasp st 2, (page count{})", pageCount));
 
                         if (pageCount > rb::pagesInBui) {
                             logMessage("Больше максималки страниц, impossible", "system", 112);
@@ -913,6 +948,7 @@ void main2() {
                                 rb::mtx1.unlock();
                             }
                         }
+                        logCall("NewRasp st 3");
 
                         for (int i = pageCount + rb::pagesInBui * (corp.localOffset); i < rb::pagesInBui * (corp.localOffset + 1); i++) {
 
@@ -925,7 +961,7 @@ void main2() {
                                 }
                             }
                         }
-
+                        logCall("NewRasp st 4");
 
                         // зачистка переменных корпуса
                         {
@@ -936,29 +972,37 @@ void main2() {
 
                             rb::ErrorOnCore = 0;
                         }
+                        logCall("NewRasp st 5");
 
+                        // Обработка страниц
                         for (int i = 0; i < pageCount && i < rb::pagesInBui; i++) {
                             auto& page = corp.pages[i];
                             page.isEmpty = 0;
                             corp.pagesUse++;
 
+                            logCall("NewRasp st 6");
                             system(std::format("magick -density 400 {}[{}] -background white -flatten -quality 100 {}.png",
                                 corp.pdfFileName, i, rb::imgPath + page.folderName).c_str());
 
+                            logCall("NewRasp st 7");
                             //обрезка фото
                             try
                             {
                                 editRaspis(rb::imgPath + page.folderName + ".png");
+                                logCall("NewRasp st 8");
                                 getLocalRaspis(page, corp.pdfFileName, i);
+                                logCall("NewRasp st 9");
                             }
                             catch (const std::exception& e)
                             {
+                                logCall("NewRasp st 999, err");
                                 logMessage("Какой ужас! Скинь мне это tg: @wyanarba EROR: гет локалраспис | " + (string)e.what(), "system", 113);
                                 rb::ErrorOnCore = 1;
                             }
                         }
 
                         //рассылка
+                        logCall("NewRasp st 10");
                         rb::currentCorps = corp.localOffset;
                         postRaspis();
                         logMessage("Конец обработки нового расписания", "system", 115);
@@ -994,6 +1038,7 @@ void main2() {
                                 system(update_command);
                                 exit(0);
                             }
+
                         }
                         else {
                             logMessage("Не удалось скачать версию", "system", 121);

@@ -22,6 +22,7 @@
 #include <mutex>
 #include <regex>
 #include <numeric>
+#include <queue>
 
 using namespace std;
 using namespace TgBot;
@@ -58,6 +59,9 @@ namespace rb {
 
     set <string> AllTeachers;// перечисление всех учителей (DefTeachers)
     vector<bool> DisabledGroups;// группы без подписчиков
+
+    bool mLogIsEnabled = 1;
+    queue<string> callsLogQueue;
 }
 
 struct myGroup
@@ -162,6 +166,29 @@ void logMessage(string message, string fileName, int num) {// без .txt
 
     if (fileName != "messages")
         cout << "(" + fileName + ") " << put_time(&time_info, "[%Y-%m-%d | %H:%M:%S] (") << to_string(num) + ")\t" + message << '\n';
+}
+
+void logCall(string message) {
+    rb::mtxForLog.lock();
+    time_t now_time = chrono::system_clock::to_time_t(chrono::system_clock::now());
+
+    struct tm now;
+    localtime_s(&now, &now_time);
+
+
+    if (rb::mLogIsEnabled) {
+        ofstream logOfs("..\\mLog.txt", ios::app);
+        logOfs << put_time(&now, "[%Y-%m-%d | %H:%M:%S] ") << message << '\n';
+        logOfs.close();
+    }
+
+    rb::callsLogQueue.push("[" + to_string(now.tm_year + 1900) + "-" + to_string(now.tm_mon) + "-" + to_string(now.tm_mday) + " | " +
+        to_string(now.tm_hour) + ":" + to_string(now.tm_min) + ":" + to_string(now.tm_sec) + "] " + message);
+
+    if (rb::callsLogQueue.size() > 50)
+        rb::callsLogQueue.pop();
+
+    rb::mtxForLog.unlock();
 }
 
 //скачивание файла с сайта
@@ -340,6 +367,9 @@ string cp1251_to_utf8(const char* str) {
 
 //анти двойной запуск
 bool isAlreadyRunning() {
+
+    logCall(std::format("isAlreadyRunning()"));
+
     // Уникальное имя мьютекса
     const char* mutexName = "Global\\raspisbot";
 
@@ -453,6 +483,9 @@ void drawTextFT(cv::Mat& img, const std::string& aa, const std::string& fontPath
 }
 
 void genGroups() {
+
+    logCall(std::format("genGroups()"));
+
     const vector<string> gName = { "ДО", "ИИС", "ИКС", "ИСП", "МТО", "ОИБ", "ОПС", "СИС", "ТО", "ЭСС" };
     const vector<string> suf = { "а", "ир", "ис", "п", "р", "т" };
     int offset = 0;
