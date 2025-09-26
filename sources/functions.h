@@ -264,13 +264,13 @@ bool DownloadFileToMemory(const std::string& url, std::string& fileContent) {
     }
 
     // Проверяем, что файл не пустой и начинается с PDF сигнатуры
-    if (fileContent.size() < 4 || fileContent.substr(0, 4) != "%PDF") {
+    /*if (fileContent.size() < 4 || fileContent.substr(0, 4) != "%PDF") {
         logMessage("Downloaded file is not a valid PDF (size: " +
             std::to_string(fileContent.size()) + ")", "system", 205);
         InternetCloseHandle(hFile);
         InternetCloseHandle(hInternet);
         return false;
-    }
+    }*/
 
     InternetCloseHandle(hFile);
     InternetCloseHandle(hInternet);

@@ -1,8 +1,8 @@
 #pragma once
 //123
 
-const string CurrentVers = "v3.4_6";
-const string version = CurrentVers + " (26.09.2025) ai помощь";
+const string CurrentVers = "v3.4_7";
+const string version = CurrentVers + " (26.09.2025) ai помощь2";
 
 string FirstUrl = "https://rasp.vksit.ru/";
 //https://wyanarba.github.io/rBot/
@@ -1016,7 +1016,7 @@ void main2() {
                     
                         tryesChek++;
 
-                        if (DownloadFileToMemory("https://wyanarba.github.io/rBot/", newVersion) && newVersion.size() < 8) {
+                        if (DownloadFileToMemory("https://wyanarba.github.io/rBot/", newVersion) && newVersion.size() < 15) {
                             if (newVersion != CurrentVers) {
                                 logMessage("Обнова!!! " + CurrentVers + " -> " + newVersion, "system");
 
