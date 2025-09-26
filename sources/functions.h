@@ -192,6 +192,7 @@ void logCall(string message) {
 }
 
 //скачивание файла с сайта
+//скачивание файла с сайта с улучшенной обработкой ошибок
 bool DownloadFileToMemory(const std::string& url, std::string& fileContent) {
     HINTERNET hInternet = InternetOpen("File Downloader", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
     if (!hInternet) {
@@ -201,41 +202,122 @@ bool DownloadFileToMemory(const std::string& url, std::string& fileContent) {
 
     // Генерация уникального параметра для предотвращения кеширования
     std::stringstream ss;
-    ss << url << "?t=" << std::time(nullptr);  // Добавляем текущее время к URL
+    ss << url << "?t=" << std::time(nullptr);
     std::string fullUrl = ss.str();
 
-    // Открываем URL с уникальным параметром
-    HINTERNET hFile = InternetOpenUrl(hInternet, fullUrl.c_str(), NULL, 0, INTERNET_FLAG_RELOAD | INTERNET_FLAG_NO_CACHE_WRITE, 0);
+    // Открываем URL с флагами для бинарных данных
+    HINTERNET hFile = InternetOpenUrl(hInternet, fullUrl.c_str(), NULL, 0,
+        INTERNET_FLAG_RELOAD | INTERNET_FLAG_NO_CACHE_WRITE | INTERNET_FLAG_EXISTING_CONNECT, 0);
+
     if (!hFile) {
-        logMessage("Failed to open URL.", "system", 202);
+        DWORD error = GetLastError();
+        logMessage("Failed to open URL. Error code: " + std::to_string(error), "system", 202);
         InternetCloseHandle(hInternet);
         return false;
     }
 
+    // Проверяем HTTP статус код
+    DWORD statusCode = 0;
+    DWORD statusCodeSize = sizeof(statusCode);
+    if (HttpQueryInfo(hFile, HTTP_QUERY_STATUS_CODE | HTTP_QUERY_FLAG_NUMBER,
+        &statusCode, &statusCodeSize, NULL)) {
+        if (statusCode != 200) {
+            logMessage("HTTP error. Status code: " + std::to_string(statusCode), "system", 204);
+            InternetCloseHandle(hFile);
+            InternetCloseHandle(hInternet);
+            return false;
+        }
+    }
+
+    // Получаем размер файла если доступен
+    DWORD contentLength = 0;
+    DWORD contentLengthSize = sizeof(contentLength);
+    bool hasContentLength = HttpQueryInfo(hFile, HTTP_QUERY_CONTENT_LENGTH | HTTP_QUERY_FLAG_NUMBER,
+        &contentLength, &contentLengthSize, NULL);
+
+    if (hasContentLength) {
+        //logMessage("Content-Length: " + std::to_string(contentLength), "system");
+        fileContent.reserve(contentLength); // резервируем память
+    }
+
+    // Читаем файл блоками
     std::ostringstream contentStream;
-    char buffer[4096];
+    char buffer[8192]; // увеличили размер буфера
     DWORD bytesRead;
-    while (InternetReadFile(hFile, buffer, sizeof(buffer), &bytesRead) && bytesRead > 0) {
+    DWORD totalBytesRead = 0;
+
+    while (InternetReadFile(hFile, buffer, sizeof(buffer), &bytesRead)) {
+        if (bytesRead == 0) break; // конец файла
+
         contentStream.write(buffer, bytesRead);
+        totalBytesRead += bytesRead;
     }
 
     fileContent = contentStream.str();
 
+    //logMessage("Downloaded " + std::to_string(totalBytesRead) + " bytes", "system");
+
+    // Проверяем, что скачали ожидаемое количество данных
+    if (hasContentLength && totalBytesRead != contentLength) {
+        logMessage("Warning: Downloaded " + std::to_string(totalBytesRead) +
+            " bytes, expected " + std::to_string(contentLength), "system");
+    }
+
+    // Проверяем, что файл не пустой и начинается с PDF сигнатуры
+    if (fileContent.size() < 4 || fileContent.substr(0, 4) != "%PDF") {
+        logMessage("Downloaded file is not a valid PDF (size: " +
+            std::to_string(fileContent.size()) + ")", "system", 205);
+        InternetCloseHandle(hFile);
+        InternetCloseHandle(hInternet);
+        return false;
+    }
+
     InternetCloseHandle(hFile);
     InternetCloseHandle(hInternet);
-
     return true;
 }
 
 //запись строк (файлов .pdf) в файлы
+//запись бинарных данных в файл с проверками
 bool WriteStringToFile(const std::string& content, const std::string& filePath) {
-    std::ofstream outFile(filePath, std::ios::binary);
-    if (!outFile.is_open()) {
-        logMessage("Failed to open file for writing.", "system", 203);
+    // Проверяем, что контент не пустой
+    if (content.empty()) {
+        logMessage("Content is empty, cannot write file.", "system", 206);
         return false;
     }
+
+    std::ofstream outFile(filePath, std::ios::binary);
+    if (!outFile.is_open()) {
+        logMessage("Failed to open file for writing: " + filePath, "system", 203);
+        return false;
+    }
+
     outFile.write(content.data(), content.size());
+
+    // Проверяем успешность записи
+    if (outFile.fail()) {
+        logMessage("Failed to write data to file: " + filePath, "system", 207);
+        outFile.close();
+        return false;
+    }
+
     outFile.close();
+
+    // Проверяем размер записанного файла
+    std::ifstream checkFile(filePath, std::ios::binary | std::ios::ate);
+    if (checkFile.is_open()) {
+        std::streamsize fileSize = checkFile.tellg();
+        checkFile.close();
+
+        if (static_cast<size_t>(fileSize) != content.size()) {
+            logMessage("File size mismatch. Expected: " + std::to_string(content.size()) +
+                ", Actual: " + std::to_string(fileSize), "system", 208);
+            return false;
+        }
+
+        logMessage("Successfully wrote " + std::to_string(fileSize) + " bytes to " + filePath, "system");
+    }
+
     return true;
 }
 
@@ -254,21 +336,51 @@ bool ReadStringFromFile(const std::string& filePath, std::string& content) {
 }
 
 //получение количества страниц в документе
+//получение количества страниц в документе с дополнительными проверками
 int getPDFPageCount(const std::string& filePath) {
+    // Проверяем существование файла
+    std::ifstream file(filePath, std::ios::binary);
+    if (!file.is_open()) {
+        logMessage("File does not exist: " + filePath, "system");
+        return -1;
+    }
+
+    // Проверяем размер файла
+    file.seekg(0, std::ios::end);
+    std::streamsize fileSize = file.tellg();
+    file.close();
+
+    if (fileSize < 10) { // минимальный размер PDF
+        logMessage("File too small to be a valid PDF: " + std::to_string(fileSize) + " bytes", "system");
+        return -1;
+    }
+
+    logMessage("Attempting to open PDF file: " + filePath + " (size: " + std::to_string(fileSize) + " bytes)", "system");
+
     // Загружаем документ
     poppler::document* doc = poppler::document::load_from_file(filePath);
-
     if (!doc) {
-        //errorExcept("Не удалось открыть PDF файл: " + filePath, 0);
+        logMessage("Failed to open PDF file with poppler: " + filePath, "system");
+
+        // Дополнительная проверка - читаем начало файла
+        std::ifstream pdfFile(filePath, std::ios::binary);
+        if (pdfFile.is_open()) {
+            char header[10];
+            pdfFile.read(header, 5);
+            header[5] = '\0';
+            logMessage("File header: " + std::string(header), "system");
+            pdfFile.close();
+        }
+
         return -1;
     }
 
     // Получаем количество страниц
     int numPages = doc->pages();
+    logMessage("PDF contains " + std::to_string(numPages) + " pages", "system");
 
     // Освобождаем память
     delete doc;
-
     return numPages;
 }
 

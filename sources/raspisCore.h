@@ -1,8 +1,8 @@
 #pragma once
 //123
 
-const string CurrentVers = "v3.4_5";
-const string version = CurrentVers + " (26.09.2025) снова?, больше логов)";
+const string CurrentVers = "v3.4_6";
+const string version = CurrentVers + " (26.09.2025) ai помощь";
 
 string FirstUrl = "https://rasp.vksit.ru/";
 //https://wyanarba.github.io/rBot/
