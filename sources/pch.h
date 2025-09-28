@@ -2,6 +2,8 @@
 
 #pragma comment(lib, "wininet.lib")
 
+#include <tgbot/tgbot.h>
+
 #include <windows.h>
 #include <wininet.h>
 #include <vector>
@@ -15,3 +17,4 @@
 #include <fstream>
 #include <filesystem>
 #include <chrono>
+#include <curl/curl.h>

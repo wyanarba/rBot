@@ -13,7 +13,6 @@
 
 using namespace cv;
 using namespace poppler;
-namespace fs = std::filesystem;
 
 
 struct myCoord
@@ -25,22 +24,15 @@ struct myCoord
 };
 
 
-const string CurrentVersion = "v3.9";
-const string Version = CurrentVersion + " (20.09.2025) поганые краши";
-
-string MainUrl = "https://rasp.vksit.ru/";
-const char UpdateCommand[17] = "start update.bat";
-string FileDownloaded;//файлы .pdf с расписанием
-int CutsOffX = 0, CutsOffY = 0, LeftEdge = 0;
+static string MainUrl = "https://rasp.vksit.ru/";
+static const char UpdateCommand[17] = "start update.bat";
+static string FileDownloaded;//файлы .pdf с расписанием
+static int CutsOffX = 0, CutsOffY = 0, LeftEdge = 0;
 
 
 // Скачивание файла с сайта
-static bool DownloadFileToMemory(const std::string& url, std::string& fileContent) {
-
-    /*if (rb::EnableMLog) {
-        logMessage("DownloadFileToMemory (" + url + ")", "mLog");
-    }*/
-
+// Скачивание файла с сайта с улучшенной обработкой ошибок
+bool DownloadFileToMemory(const std::string& url, std::string& fileContent) {
     HINTERNET hInternet = InternetOpen("File Downloader", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
     if (!hInternet) {
         logMessage("Failed to initialize InternetOpen.", "system", 201);
@@ -49,56 +41,127 @@ static bool DownloadFileToMemory(const std::string& url, std::string& fileConten
 
     // Генерация уникального параметра для предотвращения кеширования
     std::stringstream ss;
-    ss << url << "?t=" << std::time(nullptr);  // Добавляем текущее время к URL
+    ss << url << "?t=" << std::time(nullptr);
     std::string fullUrl = ss.str();
 
-    // Открываем URL с уникальным параметром
-    HINTERNET hFile = InternetOpenUrl(hInternet, fullUrl.c_str(), NULL, 0, INTERNET_FLAG_RELOAD | INTERNET_FLAG_NO_CACHE_WRITE, 0);
+    // Открываем URL с флагами для бинарных данных
+    HINTERNET hFile = InternetOpenUrl(hInternet, fullUrl.c_str(), NULL, 0,
+        INTERNET_FLAG_RELOAD | INTERNET_FLAG_NO_CACHE_WRITE | INTERNET_FLAG_EXISTING_CONNECT, 0);
+
     if (!hFile) {
-        logMessage("Failed to open URL.", "system", 202);
+        DWORD error = GetLastError();
+        logMessage("Failed to open URL. Error code: " + std::to_string(error), "system", 202);
         InternetCloseHandle(hInternet);
         return false;
     }
 
+    // Проверяем HTTP статус код
+    DWORD statusCode = 0;
+    DWORD statusCodeSize = sizeof(statusCode);
+    if (HttpQueryInfo(hFile, HTTP_QUERY_STATUS_CODE | HTTP_QUERY_FLAG_NUMBER,
+        &statusCode, &statusCodeSize, NULL)) {
+        if (statusCode != 200) {
+            logMessage("HTTP error. Status code: " + std::to_string(statusCode), "system", 204);
+            InternetCloseHandle(hFile);
+            InternetCloseHandle(hInternet);
+            return false;
+        }
+    }
+
+    // Получаем размер файла если доступен
+    DWORD contentLength = 0;
+    DWORD contentLengthSize = sizeof(contentLength);
+    bool hasContentLength = HttpQueryInfo(hFile, HTTP_QUERY_CONTENT_LENGTH | HTTP_QUERY_FLAG_NUMBER,
+        &contentLength, &contentLengthSize, NULL);
+
+    if (hasContentLength) {
+        //logMessage("Content-Length: " + std::to_string(contentLength), "system");
+        fileContent.reserve(contentLength); // резервируем память
+    }
+
+    // Читаем файл блоками
     std::ostringstream contentStream;
-    char buffer[4096];
+    char buffer[8192]; // увеличили размер буфера
     DWORD bytesRead;
-    while (InternetReadFile(hFile, buffer, sizeof(buffer), &bytesRead) && bytesRead > 0) {
+    DWORD totalBytesRead = 0;
+
+    while (InternetReadFile(hFile, buffer, sizeof(buffer), &bytesRead)) {
+        if (bytesRead == 0) break; // конец файла
+
         contentStream.write(buffer, bytesRead);
+        totalBytesRead += bytesRead;
     }
 
     fileContent = contentStream.str();
 
+    //logMessage("Downloaded " + std::to_string(totalBytesRead) + " bytes", "system");
+
+    // Проверяем, что скачали ожидаемое количество данных
+    if (hasContentLength && totalBytesRead != contentLength) {
+        logMessage("Warning: Downloaded " + std::to_string(totalBytesRead) +
+            " bytes, expected " + std::to_string(contentLength), "system");
+    }
+
+    // Проверяем, что файл не пустой и начинается с PDF сигнатуры
+    /*if (fileContent.size() < 4 || fileContent.substr(0, 4) != "%PDF") {
+        logMessage("Downloaded file is not a valid PDF (size: " +
+            std::to_string(fileContent.size()) + ")", "system", 205);
+        InternetCloseHandle(hFile);
+        InternetCloseHandle(hInternet);
+        return false;
+    }*/
+
     InternetCloseHandle(hFile);
     InternetCloseHandle(hInternet);
-
     return true;
 }
 
 // Запись строк (файлов .pdf) в файлы
-static bool WriteStringToFile(const std::string& content, const std::string& filePath) {
-
-    if (rb::EnableMLog) {
-        logMessage("WriteStringToFile (" + filePath + ")", "mLog");
+// Запись бинарных данных в файл с проверками
+bool WriteStringToFile(const std::string& content, const std::string& filePath) {
+    // Проверяем, что контент не пустой
+    if (content.empty()) {
+        logMessage("Content is empty, cannot write file.", "system", 206);
+        return false;
     }
 
     std::ofstream outFile(filePath, std::ios::binary);
     if (!outFile.is_open()) {
-        logMessage("Failed to open file for writing.", "system", 203);
+        logMessage("Failed to open file for writing: " + filePath, "system", 203);
         return false;
     }
+
     outFile.write(content.data(), content.size());
+
+    // Проверяем успешность записи
+    if (outFile.fail()) {
+        logMessage("Failed to write data to file: " + filePath, "system", 207);
+        outFile.close();
+        return false;
+    }
+
     outFile.close();
+
+    // Проверяем размер записанного файла
+    std::ifstream checkFile(filePath, std::ios::binary | std::ios::ate);
+    if (checkFile.is_open()) {
+        std::streamsize fileSize = checkFile.tellg();
+        checkFile.close();
+
+        if (static_cast<size_t>(fileSize) != content.size()) {
+            logMessage("File size mismatch. Expected: " + std::to_string(content.size()) +
+                ", Actual: " + std::to_string(fileSize), "system", 208);
+            return false;
+        }
+
+        //logMessage("Successfully wrote " + std::to_string(fileSize) + " bytes to " + filePath, "system");
+    }
+
     return true;
 }
 
 // Чтение строк (файлов .pdf) из файлов
 static bool ReadStringFromFile(const std::string& filePath, std::string& content) {
-
-    if (rb::EnableMLog) {
-        logMessage("ReadStringFromFile (" + filePath + ", " + ")", "mLog");
-    }
-
     std::ifstream inFile(filePath, std::ios::binary);
     if (!inFile.is_open()) {
         logMessage("Failed to open file for reading.", "system", 204);
@@ -112,36 +175,56 @@ static bool ReadStringFromFile(const std::string& filePath, std::string& content
 }
 
 // Получение количества страниц в документе
-static int getPDFPageCount(const std::string& filePath) {
-
-    if (rb::EnableMLog) {
-        logMessage("getPDFPageCount (" + filePath + ")", "mLog");
+// Получение количества страниц в документе с дополнительными проверками
+int getPDFPageCount(const std::string& filePath) {
+    // Проверяем существование файла
+    std::ifstream file(filePath, std::ios::binary);
+    if (!file.is_open()) {
+        logMessage("File does not exist: " + filePath, "system");
+        return -1;
     }
+
+    // Проверяем размер файла
+    file.seekg(0, std::ios::end);
+    std::streamsize fileSize = file.tellg();
+    file.close();
+
+    if (fileSize < 10) { // минимальный размер PDF
+        logMessage("File too small to be a valid PDF: " + std::to_string(fileSize) + " bytes", "system");
+        return -1;
+    }
+
+    //logMessage("Attempting to open PDF file: " + filePath + " (size: " + std::to_string(fileSize) + " bytes)", "system");
 
     // Загружаем документ
     poppler::document* doc = poppler::document::load_from_file(filePath);
-
     if (!doc) {
-        //errorExcept("Не удалось открыть PDF файл: " + filePath, 0);
+        logMessage("Failed to open PDF file with poppler: " + filePath, "system");
+
+        // Дополнительная проверка - читаем начало файла
+        std::ifstream pdfFile(filePath, std::ios::binary);
+        if (pdfFile.is_open()) {
+            char header[10];
+            pdfFile.read(header, 5);
+            header[5] = '\0';
+            logMessage("File header: " + std::string(header), "system");
+            pdfFile.close();
+        }
+
         return -1;
     }
 
     // Получаем количество страниц
     int numPages = doc->pages();
+    logMessage("PDF contains " + std::to_string(numPages) + " pages", "system");
 
     // Освобождаем память
     delete doc;
-
     return numPages;
 }
 
 // Рисование текста
 static void drawTextFT(cv::Mat& img, const std::string& aa, const std::string& fontPath, int fontSize, int x_center, int y_center) {
-
-    if (rb::EnableMLog) {
-        logMessage("drawTextFT ()", "mLog");
-    }
-
     // Конвертация из Windows-1251 в wstring
     int size_needed = MultiByteToWideChar(1251, 0, aa.c_str(), -1, nullptr, 0);
     std::wstring text(size_needed, 0);
@@ -226,33 +309,7 @@ static void drawTextFT(cv::Mat& img, const std::string& aa, const std::string& f
 }
 
 
-
-static void postRaspis() {
-
-    if (rb::EnableMLog) {
-        logMessage("postRaspis ()", "mLog");
-    }
-
-    sync::mtx1.lock();//отправляем сообщение боту и ожидаем завершения отправки расписания
-    sync::SyncMode = 3;
-    sync::mtx1.unlock();
-
-    bool wait = 1;
-
-    while (wait) {
-        this_thread::sleep_for(300ms);
-        sync::mtx1.lock();
-        wait = sync::SyncMode != 0;
-        sync::mtx1.unlock();
-    }
-}
-
 static int findMajorityElement(const vector<int>& numbers) {
-
-    if (rb::EnableMLog) {
-        logMessage("findMajorityElement (" + to_string(numbers.size()) + ")", "mLog");
-    }
-
     map<int, int> frequency;
     for (int i = 0; i < numbers.size() - 1; i++) {
         frequency[numbers[i + 1] - numbers[i]]++;
@@ -270,10 +327,6 @@ static int findMajorityElement(const vector<int>& numbers) {
 }
 
 static std::vector<int> filterVector(const std::vector<int>& input, double thresholdFactor = 1) {
-
-    /*if (rb::EnableMLog) {
-        logMessage("filterVector (" + to_string(input.size()) + ")", "mLog");
-    }*/
 
     // Подсчёт частоты каждого числа
     std::map<int, int> frequency;
@@ -304,11 +357,6 @@ static std::vector<int> filterVector(const std::vector<int>& input, double thres
 
 
 static void editRaspis(string filePath) {
-
-    if (rb::EnableMLog) {
-        logMessage("editRaspis (" + filePath +")", "mLog");
-    }
-
     Mat image = imread(filePath);;
     int& imageHeight = image.rows, imageWidth = image.cols;
     int startX = imageWidth + 1, startY = imageHeight + 1, endX = 0, endY = 0;
@@ -411,10 +459,6 @@ static void editRaspis(string filePath) {
 
 static void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
 
-    if (rb::EnableMLog) {
-        logMessage("getLocalRaspis (" + mPage.folderName + ", " + pdf_path + ", " + to_string(pageNum) + ")", "mLog");
-    }
-
     string imageName = rb::imgPath + mPage.folderName + ".png", folderToSave = rb::imgPath + mPage.folderName + "\\";
 
     set <string> lastGroups;//преподаватели и изменённые группы
@@ -429,7 +473,7 @@ static void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
     poppler::page* page = NULL;
     page = doc->create_page(pageNum);
     Mat timeImage, corpsNumImage;
-    string corpsNum = "err";
+    string corpsNum = to_string(sync::CurrentCorp + 1);
 
     int padding = 0;//отступы в маленькой версии картинки
     int padding1 = 0;//отступы между датой в маленькой версии картинки
@@ -1084,19 +1128,21 @@ static void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
 }
 
 void main2() {
+
     try
     {
+        // Начальная инициализация
         for (corps& corp : rb::corpss) {
             ReadStringFromFile(corp.pdfFileName, corp.LastFileD);
         }
 
+        // Проверки
         while (true) {
 
             try {
+
                 // Обновление расписания
                 for (corps& corp : rb::corpss) {
-
-
                     if (!DownloadFileToMemory(MainUrl + corp.pdfFileName, FileDownloaded)) {
                         logMessage("Не удалось скачать файл с расписанием", "system", 120);
                         continue;
@@ -1104,96 +1150,84 @@ void main2() {
 
                     if (FileDownloaded != corp.LastFileD) {
 
-                        if (rb::EnableMLog) {
-                            logMessage("GetNewR st 1", "mLog");
-
-                            time_t t = time(nullptr);
-                            tm now = {};
-                            localtime_s(&now, &t);
-
-                            WriteStringToFile(FileDownloaded, "lastPdfs\\" +
-                                to_string(now.tm_year + 1900) + "." + to_string(now.tm_mon) + "." + to_string(now.tm_mday) + "---" + to_string(now.tm_hour) + "-" + to_string(now.tm_min) + "-" + to_string(now.tm_sec) + "_"
-                                + corp.pdfFileName);
-                        }
+                        int pageCount = 0;
 
                         logMessage("Начало обработки нового расписания, " + to_string(corp.localOffset + 1) + " корпус", "system", 112);
 
-                        WriteStringToFile(FileDownloaded, corp.pdfFileName);
-                        corp.LastFileD = FileDownloaded;
-
-                        int pageCount = getPDFPageCount(corp.pdfFileName);
-
-                        if (pageCount > rb::pagesInBui)
-                            logMessage("Больше максимума страниц, impossible", "system", 112);
-
-                        if (rb::EnableMLog) {
-                            logMessage("GetNewR st 2", "mLog");
-                        }
-
-                        for (int i = pageCount + rb::pagesInBui * corp.localOffset; i < rb::pagesInBui * (corp.localOffset + 1); i++) {
-
-                            for (const auto& entry : std::filesystem::directory_iterator(rb::imgPath + to_string(i))) {
-
-                                string currentFile = cp1251_to_utf8(entry.path().filename().string().c_str());
-
-                                if (entry.is_regular_file() && currentFile.find(".png") != string::npos) {
-                                    std::filesystem::remove(entry.path());
-                                }
-
-                            }
-                        }
-
-                        if (rb::EnableMLog) {
-                            logMessage("GetNewR st 3", "mLog");
-                        }
-
-                        //приостанавливаем бота
+                        
+                        // Приостанавливаем бота
                         {
-                            sync::mtx1.lock();
 
-                            sync::SyncMode = 1;
+                            sync::CurrentCorp = corp.localOffset;
+                            sync::ErrorOnCore = 0;
+
                             bool wait = 1;
 
-                            sync::mtx1.unlock();
+                            {
+                                std::lock_guard<std::mutex> lock(sync::mtx1);
+
+                                sync::SyncMode = sync::Mods::botStopping;
+                                sync::SyncAction = sync::Actions::nothing;
+                            }
 
                             while (wait) {
                                 this_thread::sleep_for(100ms);
-                                sync::mtx1.lock();
-                                wait = sync::SyncMode != 2;
-                                sync::mtx1.unlock();
+
+                                {
+                                    std::lock_guard<std::mutex> lock(sync::mtx1);
+
+                                    wait = sync::SyncMode != sync::Mods::botStopped;
+                                }
                             }
                         }
 
-                        if (rb::EnableMLog) {
-                            logMessage("GetNewR st 4", "mLog");
+
+                        // Подготовка
+                        {
+                            
+                            if (!WriteStringToFile(FileDownloaded, corp.pdfFileName)) {
+                                logMessage("Не удалось записать файл .pdf", "system");
+                                throw 1;
+                            }
+
+
+                            pageCount = getPDFPageCount(corp.pdfFileName);
+                            if (pageCount < 1 || pageCount > 10) {
+                                logMessage(std::format("Неверное количество страниц: {}", pageCount), "system");
+                                throw 1;
+                            }
+
+
+                            // Зачистка папок
+                            for (int i = pageCount + rb::pagesInBui * (corp.localOffset); i < rb::pagesInBui * (corp.localOffset + 1); i++) {
+
+                                for (const auto& entry : std::filesystem::directory_iterator(rb::imgPath + to_string(i))) {
+
+                                    if (entry.is_regular_file() && entry.path().extension().string() == ".png") {
+                                        std::filesystem::remove(entry.path());
+                                    }
+                                }
+                            }
                         }
 
-                        // зачистка переменных корпуса
-                        {
-                            corp.pagesUse = 0;
 
+                        // Зачистка переменных корпуса
+                        {
                             for (auto& page : corp.pages)
                                 page.clear();
-
-                            rb::ErrorOnCore = 0;
-                        }
-                        if (rb::EnableMLog) {
-                            logMessage("GetNewR st 5", "mLog");
                         }
 
+
+                        // Обработка страниц
                         for (int i = 0; i < pageCount && i < rb::pagesInBui; i++) {
+
                             auto& page = corp.pages[i];
                             page.isEmpty = 0;
-                            corp.pagesUse++;
 
                             system(std::format("magick -density 400 {}[{}] -background white -flatten -quality 100 {}.png",
                                 corp.pdfFileName, i, rb::imgPath + page.folderName).c_str());
 
-                            if (rb::EnableMLog) {
-                                logMessage("GetNewR st 8", "mLog");
-                            }
-
-                            //обрезка фото
+                            // Обработка картинок
                             try
                             {
                                 editRaspis(rb::imgPath + page.folderName + ".png");
@@ -1202,50 +1236,72 @@ void main2() {
                             catch (const std::exception& e)
                             {
                                 logMessage("Какой ужас! Скинь мне это tg: @wyanarba EROR: гет локал распис | " + (string)e.what(), "system", 113);
-                                rb::ErrorOnCore = 1;
-                            }
-
-                            if (rb::EnableMLog) {
-                                logMessage("GetNewR st 7", "mLog");
+                                sync::ErrorOnCore = 1;
                             }
                         }
 
 
-                        if (rb::EnableMLog) {
-                            logMessage("GetNewR st 8", "mLog");
+                        // Всё было успешно
+                        corp.LastFileD = FileDownloaded;
+
+
+                        // Рассылка
+                        {
+
+                            bool wait = 1;
+
+                            {
+                                std::lock_guard<mutex> lock(sync::mtx1);
+
+                                sync::SyncMode = sync::Mods::botStarting;
+                                sync::SyncAction = sync::Actions::sendNewRasp;
+                            }
+
+                            
+                            while (wait) {
+
+                                this_thread::sleep_for(300ms);
+
+                                {
+                                    std::lock_guard<mutex> lock(sync::mtx1);
+
+                                    wait = sync::SyncMode != sync::Mods::free;
+                                }
+                            }
                         }
 
-                        //рассылка
-                        rb::currentCorps = corp.localOffset;
-                        postRaspis();
                         logMessage("Конец обработки нового расписания", "system", 115);
                     }
-
                 }
 
-                // Поиск обновы
+                // Поиск обновления
                 {
                     if (cfg::EnableAutoUpdate && sync::AttemptsToCheck == 0) {//чек обновы
 
                         sync::AttemptsToCheck++;
 
-                        if (DownloadFileToMemory("https://wyanarba.github.io/rBot/", sync::NewVersion) && sync::NewVersion.size() < 8) {
+                        if (DownloadFileToMemory("https://wyanarba.github.io/rBot/", sync::NewVersion) && sync::NewVersion.size() < 30) {
                             if (sync::NewVersion != CurrentVersion) {
                                 logMessage("Обнова!!! " + CurrentVersion + " -> " + sync::NewVersion, "system");
 
-                                sync::IsUpdate = 1;
-                                sync::mtx1.lock();//приостанавливаем бота
-
-                                sync::SyncMode = 1;
                                 bool wait = 1;
 
-                                sync::mtx1.unlock();
+                                {
+                                    std::lock_guard<mutex> lock(sync::mtx1);
+
+                                    sync::SyncMode = sync::Mods::botStopping;
+                                    sync::SyncAction = sync::Actions::update;
+                                }
+
 
                                 while (wait) {
                                     this_thread::sleep_for(100ms);
-                                    sync::mtx1.lock();
-                                    wait = sync::SyncMode != 2;
-                                    sync::mtx1.unlock();
+
+                                    {
+                                        std::lock_guard<mutex> lock(sync::mtx1);
+
+                                        wait = sync::SyncMode != sync::Mods::botStopped;
+                                    }
                                 }
 
                                 system(UpdateCommand);
@@ -1276,20 +1332,27 @@ void main2() {
                         now.tm_year = (now.tm_year + 1900) % 100;
 
                         if (now.tm_year > sync::CurrentYear && (now.tm_mon > 6 || (now.tm_mon == 6 && now.tm_mday > 4))) {
+
                             logMessage("Смена года!!! " + to_string(sync::CurrentYear) + " -> " + to_string(now.tm_year), "system");
-                            sync::IsChangeYear = 1;
 
-
-                            sync::mtx1.lock();// Приостанавливаем бота
-                            sync::SyncMode = 1;
                             bool wait = 1;
-                            sync::mtx1.unlock();
+
+                            {
+                                std::lock_guard<mutex> lock(sync::mtx1);
+
+                                sync::SyncMode = sync::Mods::botStopping;
+                                sync::SyncAction = sync::Actions::changeYear;
+                            }
+
 
                             while (wait) {
                                 this_thread::sleep_for(100ms);
-                                sync::mtx1.lock();
-                                wait = sync::SyncMode != 2;
-                                sync::mtx1.unlock();
+
+                                {
+                                    std::lock_guard<mutex> lock(sync::mtx1);
+
+                                    wait = sync::SyncMode != sync::Mods::botStopped;
+                                }
                             }
 
 
@@ -1304,9 +1367,13 @@ void main2() {
 
 
                             // Возращение
-                            sync::mtx1.lock();
-                            sync::SyncMode = 0;
-                            sync::mtx1.unlock();
+                            {
+                                std::lock_guard<mutex> lock(sync::mtx1);
+
+                                sync::SyncMode = sync::Mods::botStarting;
+                                sync::SyncAction = sync::Actions::nothing;
+                            }
+
                         }
                     }
 
@@ -1319,6 +1386,18 @@ void main2() {
             catch (const std::exception& e)
             {
                 logMessage("css) EROR | " + (string)e.what(), "system", 121);
+
+                for (auto& corp : rb::corpss) {
+                    WriteStringToFile(corp.LastFileD, corp.pdfFileName);
+                }
+
+                // Возращение
+                {
+                    std::lock_guard<mutex> lock(sync::mtx1);
+
+                    sync::SyncMode = sync::Mods::botStarting;
+                    sync::SyncAction = sync::Actions::nothing;
+                }
             }
 
 

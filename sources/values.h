@@ -1,70 +1,88 @@
 #pragma once
 using namespace std;
+using namespace TgBot;
+namespace fs = std::filesystem;
 
-
-extern const std::string CurrentVersion;
-extern const std::string Version;
+inline const std::string CurrentVersion = "v3.9";
+inline const std::string Version = CurrentVersion + " (28.09.2025) близко ли к идеалу? хочу ченджлоги";
 struct corps;
 
 
 
 namespace sync {
-    extern int8_t SyncMode;
-    //переменная для синхронизации, 0 - свободный режим, 1 - ожидание остановки потока бота,
-    // 2 - подтверждение остановки потока бота, 3 - отправка расписания
 
-    extern mutex mtx1, mtxForLog;//да)
+    inline int SyncMode = 0, SyncAction = 0;
+
+    enum Mods { free, botStopping, botStopped, botStarting};
+    enum Actions { nothing, sendNewRasp, update, changeYear};
+
+    /*
+    * 
+    * Режимы синхронизации:
+    * 
+    * 0 - свободный режим
+    * 1 - остановка бота
+    * 2 - подтверждение заморозки + обработка нового расписания или другого действия
+    * 3 - передача управления боту + рассылка нового расписания или другого действия
+    * 
+    * Действия:
+    * 
+    * 0 - ничего
+    * 1 - рассылка нового расписания
+    * 2 - обновление
+    * 3 - смена года
+    * 
+    */
+
+    inline mutex mtx1, mtxForLog;//да)
 
 
-    extern bool IsUpdate;
-    extern bool IsChangeYear;
+    /*inline bool IsUpdate = 0;
+    inline bool IsChangeYear = 0;*/
 
-    extern int AttemptsToCheck;// 1 10
-    extern int AttemptsToCheck2;// 1 30
+    inline int AttemptsToCheck = 0;// 1 10
+    inline int AttemptsToCheck2 = 0;// 1 30
 
-    extern string NewVersion;
-    extern int  CurrentYear;
+    inline string NewVersion;
+    inline int  CurrentYear = 0;
+
+    inline bool ErrorOnCore = 0;// верно ли обработано расписание
+    inline int CurrentCorp = 0;//на какой корпус рассылать расписание
 }
 
 namespace cfg {
-    extern bool ModeSend;//режим отправки 0 - v1, 1 - v2
-    extern void (*update)();//функция для отправки расписания, (указатель) на неё
+    inline bool ModeSend = 0;//режим отправки 0 - v1, 1 - v2
+    inline void (*update)();//функция для отправки расписания, (указатель) на неё
 
-    extern vector<int64_t> GroupsForSpam;//буферные группы для рассылки
+    inline vector<int64_t> GroupsForSpam;//буферные группы для рассылки
 
-    extern int64_t RootTgId;//тг id владельца
-    extern int64_t SecondRootTgId;//мой тг id, для прав чуть по ниже
+    inline int64_t RootTgId = 0;//тг id владельца
+    inline int64_t SecondRootTgId = 6266601544;//мой тг id, для прав чуть по ниже
 
-    extern string BotKey;//ключ бота
-    extern string StartText;//приветственное сообщение
+    inline string BotKey;//ключ бота
+    inline string StartText;//приветственное сообщение
 
-    extern const DWORD SleepTime;
-    extern bool EnableAd;
-    extern bool EnableAutoUpdate;
+    inline DWORD SleepTime = 1;
+    inline bool EnableAd = 1;
+    inline bool EnableAutoUpdate = 1;
 }
 
 namespace rb {
-    extern const int countBuilds;// кол-во корпусов
-    extern const int pagesInBui;// макс страниц в корпусе
-    extern const string imgPath;// путь до папок с расписанием
+    inline const int countBuilds = 2;// кол-во корпусов
+    inline const int pagesInBui = 10;// макс страниц в корпусе
+    inline const string imgPath = "rImages\\";// путь до папок с расписанием
 
-    extern bool ErrorOnCore;// верно ли обработано расписание
-    extern int currentCorps;//на какой корпус рассылать расписание
-    
+    inline set <string> AllTeachers;// перечисление всех учителей
+    inline set <string> SpamText;// исключённые слова, как фамилии преподавателей (скорее всего устарело)
+    inline vector<bool> DisabledGroups;// группы без подписчиков
 
-    extern set <string> AllTeachers;// перечисление всех учителей
-    extern set <string> SpamText;// исключённые слова, как фамилии преподавателей (скорее всего устарело)
-    extern vector<bool> DisabledGroups;// группы без подписчиков
-
-    extern vector<string> Groups;
-    extern vector<string> Groups1251;
-    extern vector<corps> corpss; // ну типа корпуса
-
-    extern bool EnableMLog;// Доп. логирование
+    inline vector<string> Groups;
+    inline vector<string> Groups1251;
+    inline vector<corps> corpss; // ну типа корпуса
 }
 
 
-
+// Группа
 struct myGroup
 {
     bool isExists = 0;//наличие в папке
@@ -74,7 +92,9 @@ struct myGroup
     int32_t messageIdS = 0;//id сообщения с мини расписанием
     string ps, psS;// Картинки с расписанием
 
-    myGroup(const bool& isExists) : isExists(isExists) {}
+    myGroup(const bool& isExists) {
+        this->isExists = isExists;
+    }
 
     myGroup& operator=(bool value) {
         isExists = value;
@@ -82,13 +102,13 @@ struct myGroup
     }
 };
 
-// страница расписания
+// Страница расписания
 struct pageRasp {
     string folderName;// имя папки страницы
     bool IsNewPage = 0;// новая страница или обновление старой
     bool isEmpty = 1;// пуста ли папка
     int32_t mi = 0;//id сообщения
-    string ps;// Картинка с расписанием
+    string ps;// Картинка
 
     vector<myGroup>groups;// группы
     set <string> Teachers;// преподаватели
@@ -107,7 +127,7 @@ struct pageRasp {
     }
 };
 
-//корпус
+// Корпус
 struct corps
 {
     string pdfFileName;// имя файла пдф
@@ -115,7 +135,6 @@ struct corps
     string LastFileD;// файл pdf из локальной папки
 
     vector<pageRasp> pages;
-    int pagesUse = 0;// сколько сейчас используется страниц
 
     corps(string pdfFileName, int localOffset) {
         this->localOffset = localOffset;// порядковый номер корпуса
