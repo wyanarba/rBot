@@ -268,8 +268,6 @@ static bool getConfig(string confName) {
                 cfg::EnableAd = value == "1";
             else if (parameter == "EnableAutoUpdate")
                 cfg::EnableAutoUpdate = value == "1";
-            else if (parameter == "SleepTime")
-                cfg::SleepTime = stoi(value) * 1000;
         }
     }
 
@@ -278,10 +276,6 @@ static bool getConfig(string confName) {
 
     if (cfg::ModeSend && cfg::GroupsForSpam.size() == 0)
         return 0;
-
-    if (cfg::SleepTime > 5 * 60 * 1000) {
-        cfg::SleepTime = 5 * 60 * 1000;
-    }
 
     if (cfg::StartText == "")
         cfg::StartText = "Бот с расписанием VKSIT!";
@@ -684,10 +678,13 @@ static void updateV2() {
                             localCount--;
                         }
                     }
+                    localCount++;
                     while (!success) {
                         try
                         {
-                            auto message = bot.getApi().sendPhoto(cfg::GroupsForSpam[cfg::GroupsForSpam.size() - 1],
+                            mPage.idSpam = localCount % cfg::GroupsForSpam.size();
+
+                            auto message = bot.getApi().sendPhoto(cfg::GroupsForSpam[mPage.idSpam],
                                 TgBot::InputFile::fromFile(rb::imgPath + mPage.folderName + ".png", "image/png"));
                             mPage.mi = message->messageId;
                             mPage.ps = message->photo.back()->fileId;
@@ -828,7 +825,7 @@ static void updateV2() {
                     while (!success) {
                         try
                         {
-                            bot.getApi().deleteMessage(cfg::GroupsForSpam[cfg::GroupsForSpam.size() - 1], mPage.mi);
+                            bot.getApi().deleteMessage(cfg::GroupsForSpam[mPage.idSpam], mPage.mi);
                             success = 1;
                         }
                         catch (const std::exception& e)
@@ -2205,7 +2202,7 @@ PS. я бы мог реализовать кастомные текста, це�
                         else if (SubscribedUsers[UserNumber].mode == 3) {
                             teacher = SubscribedUsers[UserNumber].Tea;
                             teacher.insert(teacher.end() - 6, 32);
-                            message = "Вы подписаны на расписание преподавателя с ФИО " + teacher + ", и получаете расписание только корпуса с вами";
+                            message = "Вы подписаны на расписание преподавателя с ФИО " + teacher + ", и получаете расписание только корпуса с ним";
                         }
 
 
@@ -2264,13 +2261,23 @@ PS. я бы мог реализовать кастомные текста, це�
                     }
                     else if (message->text == "Посмотреть общее расписание") {
 
+                        vector<string> imgs;
+
                         for (auto& corp : rb::corpss) {
+                            imgs.clear();
+
+
+
                             for (auto& mPage : corp.pages) {
                                 if (mPage.isEmpty)
                                     continue;
 
-                                bot.getApi().sendPhoto(userId,
-                                    TgBot::InputFile::fromFile(rb::imgPath + mPage.folderName + ".png", "image/png"));
+                                imgs.push_back(rb::imgPath + mPage.folderName + ".png");
+                            }
+
+                            if (!imgs.empty()) {
+                                sendMediaGroup2(to_string(userId), imgs);
+                                bot.getApi().sendMessage(userId, "Расписание " + to_string(corp.localOffset + 1) + " корпуса", 0, 0, NULL);
                             }
                         }
                     }

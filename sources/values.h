@@ -3,8 +3,8 @@ using namespace std;
 using namespace TgBot;
 namespace fs = std::filesystem;
 
-inline const std::string CurrentVersion = "v3.9";
-inline const std::string Version = CurrentVersion + " (28.09.2025) близко ли к идеалу? хочу ченджлоги";
+inline const std::string CurrentVersion = "v4";
+inline const std::string Version = CurrentVersion + " (01.10.2025) я устал";
 struct corps;
 
 
@@ -62,7 +62,6 @@ namespace cfg {
     inline string BotKey;//ключ бота
     inline string StartText;//приветственное сообщение
 
-    inline DWORD SleepTime = 1;
     inline bool EnableAd = 1;
     inline bool EnableAutoUpdate = 1;
 }
@@ -107,6 +106,7 @@ struct pageRasp {
     string folderName;// имя папки страницы
     bool IsNewPage = 0;// новая страница или обновление старой
     bool isEmpty = 1;// пуста ли папка
+    int idSpam;// номер буферной группы
     int32_t mi = 0;//id сообщения
     string ps;// Картинка
 

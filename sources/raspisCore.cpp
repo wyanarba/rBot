@@ -1401,7 +1401,8 @@ void main2() {
             }
 
 
-            Sleep(cfg::SleepTime);
+            this_thread::sleep_for(chrono::seconds(60));
+            cout << 1;
         }
     }
     catch (const std::exception& e)
