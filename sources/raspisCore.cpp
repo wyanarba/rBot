@@ -1187,14 +1187,14 @@ void main2() {
                             
                             if (!WriteStringToFile(FileDownloaded, corp.pdfFileName)) {
                                 logMessage("Не удалось записать файл .pdf", "system");
-                                throw 1;
+                                throw std::runtime_error("zalupka");
                             }
 
 
                             pageCount = getPDFPageCount(corp.pdfFileName);
                             if (pageCount < 1 || pageCount > 10) {
                                 logMessage(std::format("Неверное количество страниц: {}", pageCount), "system");
-                                throw 1;
+                                throw std::runtime_error("zalupka2");
                             }
 
 
@@ -1391,6 +1391,8 @@ void main2() {
                     WriteStringToFile(corp.LastFileD, corp.pdfFileName);
                 }
 
+                bool wait = 1;
+
                 // Возращение
                 {
                     std::lock_guard<mutex> lock(sync::mtx1);
@@ -1398,11 +1400,21 @@ void main2() {
                     sync::SyncMode = sync::Mods::botStarting;
                     sync::SyncAction = sync::Actions::nothing;
                 }
+
+                while (wait) {
+
+                    this_thread::sleep_for(300ms);
+
+                    {
+                        std::lock_guard<mutex> lock(sync::mtx1);
+
+                        wait = sync::SyncMode != sync::Mods::free;
+                    }
+                }
             }
 
 
             this_thread::sleep_for(chrono::seconds(60));
-            cout << 1;
         }
     }
     catch (const std::exception& e)
