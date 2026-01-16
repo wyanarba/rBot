@@ -97,7 +97,8 @@ vector <string> ErrorsForBan = {
     "CHANNEL_PRIVATE",
     "PEER_ID_INVALID",
     "CHAT_ID_INVALID",
-    "USER_IS_BOT"
+    "USER_IS_BOT",
+    "User is deactivated"
 
     "bot was kicked",
     "user is deactivated",

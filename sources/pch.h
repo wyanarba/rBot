@@ -18,3 +18,6 @@
 #include <filesystem>
 #include <chrono>
 #include <curl/curl.h>
+#include <regex>
+
+#include <nlohmann/json.hpp>

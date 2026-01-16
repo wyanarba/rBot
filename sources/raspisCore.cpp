@@ -13,14 +13,39 @@
 
 using namespace cv;
 using namespace poppler;
+using json = nlohmann::json;
 
 
 struct myCoord
 {
-    float x, y;
-    string name;
+    int x, y;
+    string text;
+};
 
-    myCoord(const float& x, const float& y, const string& name) : x(x), y(y), name(name) {}
+struct MyTextBox
+{
+    int x, y, x1, y1, midX, midY;
+    int charWidth;
+    string text, text1251;
+};
+
+struct Cell
+{
+    map<char, int> chars;
+
+    bool changedEarlier = 0, changedNow = 0;
+
+    int x, y, x1, y1;
+
+    int indexInX, indexInY;
+};
+
+struct Table {
+
+    string date;
+
+    // Строки, колонны
+    vector<vector<Cell>> cells;
 };
 
 
@@ -29,8 +54,27 @@ static const char UpdateCommand[17] = "start update.bat";
 static string FileDownloaded;//файлы .pdf с расписанием
 static int CutsOffX = 0, CutsOffY = 0, LeftEdge = 0;
 
+void to_json(json& j, const Cell& cell) {
+    j = json{ {"chars", cell.chars}, {"changedEarlier", cell.changedEarlier} };
+}
 
-// Скачивание файла с сайта
+void from_json(const json& j, Cell& cell) {
+    j.at("chars").get_to(cell.chars);
+    j.at("changedEarlier").get_to(cell.changedEarlier);
+}
+
+void to_json(json& j, const Table& table) {
+    j = json{
+        {"date", table.date},
+        {"cells", table.cells}
+    };
+}
+
+void from_json(const json& j, Table& table) {
+    j.at("date").get_to(table.date);
+    j.at("cells").get_to(table.cells);
+}
+
 // Скачивание файла с сайта с улучшенной обработкой ошибок
 bool DownloadFileToMemory(const std::string& url, std::string& fileContent) {
     HINTERNET hInternet = InternetOpen("File Downloader", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
@@ -116,7 +160,6 @@ bool DownloadFileToMemory(const std::string& url, std::string& fileContent) {
     return true;
 }
 
-// Запись строк (файлов .pdf) в файлы
 // Запись бинарных данных в файл с проверками
 bool WriteStringToFile(const std::string& content, const std::string& filePath) {
     // Проверяем, что контент не пустой
@@ -174,7 +217,6 @@ static bool ReadStringFromFile(const std::string& filePath, std::string& content
     return true;
 }
 
-// Получение количества страниц в документе
 // Получение количества страниц в документе с дополнительными проверками
 int getPDFPageCount(const std::string& filePath) {
     // Проверяем существование файла
@@ -307,7 +349,6 @@ static void drawTextFT(cv::Mat& img, const std::string& aa, const std::string& f
     FT_Done_Face(face);
     FT_Done_FreeType(ft);
 }
-
 
 static int findMajorityElement(const vector<int>& numbers) {
     map<int, int> frequency;
@@ -459,44 +500,14 @@ static void editRaspis(string filePath) {
 
 static void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
 
+    // Вроде как это всё более лаконично сделано, чем раньше, но отображение изменений меня очень сильно разочаровало...
     string imageName = rb::imgPath + mPage.folderName + ".png", folderToSave = rb::imgPath + mPage.folderName + "\\";
-
-    set <string> lastGroups;//преподаватели и изменённые группы
-    map <string, Mat>teachers;//картинки преподов
-    vector <myCoord> t2;//имена и отчества для преподавателей
-    Vec3b pixel;//пиксель изображения
     Mat image, imageCoper, imageCoper2;//картинки
     vector <int> xDots[4], yDots[4], extremDotsI;// 0 - верхние левые, 1 - нижние правые, 2 - не сортированные точки, 3 - временные
-    const float coeff = 5.5563, frCoeff = 0.8;//коэффициент для перевода координат pdf в пиксели изображения5.5563
-    bool isNewFile = 1;//полностью ли изменилось расписание
-    unique_ptr<document> doc(document::load_from_file(pdf_path));// Загружаем PDF-документ
-    poppler::page* page = NULL;
-    page = doc->create_page(pageNum);
-    Mat timeImage, corpsNumImage;
-    string corpsNum = to_string(sync::CurrentCorp + 1);
-
-    int padding = 0;//отступы в маленькой версии картинки
-    int padding1 = 0;//отступы между датой в маленькой версии картинки
-
-    if (!doc) {
-        logMessage("Ошибка загрузки PDF.", "system");
-        return;
-    }
-    if (!page) {
-        logMessage("Ошибка открытия страницы ", "system");
-    }
-
-    //извлечение текста с координатами
-    auto text_boxes = page->text_list();
-
-
     image = imread(imageName); // загрузка изображения
-    image.copyTo(imageCoper);
-    image.copyTo(imageCoper2);
 
 
-
-    //поиск перекрёстных точек
+    //поиск точек пересечения линий таблицы
     {
         int radCheck = 0, radMerge = 5;//радиусы для поиска перекрёстных точек
         int xOff = 0, y0 = 0, y1 = 0;//смещения и кол-во точек(для ключевого y)
@@ -633,6 +644,8 @@ static void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
         xDots[1].push_back(xDots[2][xDots[2].size() - 1]);
         yDots[1].push_back(yDots[2][yDots[2].size() - 1]);
 
+
+        // Тестовая отрисока
         /*for (int i = 0; i < xDots[0].size(); i++) {
             for (int x = xDots[0][i]; x <= xDots[1][i]; x++) {
                 for (int j = 0; j < yDots[0].size(); j++) {
@@ -648,7 +661,7 @@ static void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
     //костыльчик
     {}
 
-    //поиск крайних точек
+    //поиск угловых точек пересечений
     {
         int majority = findMajorityElement(yDots[0]);
         double threshold = majority * 0.8;  // Порог, на 20% меньше большинство
@@ -662,422 +675,670 @@ static void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
         extremDotsI.push_back(yDots[0].size() - 1);
     }
 
+    Table table;
+    const int partCount = 3;
+    cv::Scalar colors[partCount] = { {0, 0, 255}, {0, 255, 0}, {255, 0, 255} };
 
-    //проверка на изменение файла, полностью новое расписание или не большое изменение расписания
+    // Создание ячеек
     {
-        Mat mat1 = imread(folderToSave + "coper.png");
-        Mat mat2 = image(cv::Rect(0, 0, image.cols, yDots[0][0]));
+        for (int i = 0; i < xDots[0].size() - 1; i++) {
 
-        if (!mat1.empty()) {
-            mat1 = mat1(cv::Rect(0, 0, mat1.cols, yDots[0][0]));
+            for (int j = 0; j < yDots[0].size() - 1; j++) {
 
-            if (mat1.size() == mat2.size()) {
-                // Разделяем оба изображения на каналы
-                std::vector<cv::Mat> channels1, channels2;
-                cv::split(mat1, channels1);
-                cv::split(mat2, channels2);
+                Cell cell;
 
-                // Сравниваем каналы
-                if (cv::countNonZero(channels1[0] != channels2[0]) != 0) {
-                    isNewFile = false;
+
+                // Добавление строк
+                if (i == 0) {
+                    table.cells.push_back({});
+                }
+
+                int part_size = (xDots[1][i + 1] - xDots[0][i]) / partCount;
+
+                for (int k = 0; k < partCount; k++) {
+
+                    cell = {
+                        .x = xDots[0][i] + part_size * k,
+                        .y = yDots[0][j],
+                        .x1 = xDots[0][i] + part_size * (k + 1),
+                        .y1 = yDots[1][j + 1],
+
+                        //.indexInX = i,
+                        //.indexInY = j
+                    };
+
+
+
+                    table.cells[j].push_back(cell);
+                }
+            }
+        }
+    }
+
+    vector <myCoord> t2;// Инициалы преподавателей
+    vector <MyTextBox> textBoxes;
+    int date = -1; // Текст бокс с датой
+
+    // Разделение текста на ячейки и начальный поиск
+    {
+        smatch match;// Переменная для результатов поиска
+
+        regex dateRegex(R"(\b\d{2}\.\d{2}\.\d{4}\b)");// Поиск даты
+        regex initialsRegex(Utf8_to_cp1251(R"([А-ЯЁ]\.[А-ЯЁ]\.)"));// Поиск инициалов
+
+        vector<poppler::text_box> poplerTextBoxes;// Слова из документа
+
+        const float coeff = 5.5563;// Коэффициент преобразования координат из pdf в img
+
+
+        // Открытие документа
+        {
+            unique_ptr<document> doc(document::load_from_file(pdf_path));// Загружаем PDF-документ
+            poppler::page* page = NULL;
+            page = doc->create_page(pageNum);
+
+            if (!doc) {
+                logMessage("Ошибка загрузки PDF.", "system");
+                return;
+            }
+            if (!page) {
+                logMessage("Ошибка открытия страницы ", "system");
+                return;
+            }
+
+            poplerTextBoxes = page->text_list();
+
+            delete page;
+        }
+
+        // Обработка этого текста
+        MyTextBox tb;
+        for (int i = 0; i < poplerTextBoxes.size(); i++) {
+
+            // Извлечение текста
+            {
+                const auto& box = poplerTextBoxes[i];
+                byte_array byte_arr = box.text().to_utf8();
+                string text(byte_arr.data(), byte_arr.size()), text1251 = Utf8_to_cp1251(text.c_str());
+
+
+
+                tb = {
+
+                    .x = static_cast<int>(round(box.bbox().x() * coeff) - CutsOffX),
+                    .y = static_cast<int>(round(box.bbox().y() * coeff) - CutsOffY),
+                    .x1 = static_cast<int>(round(box.bbox().right() * coeff) - CutsOffX),
+                    .y1 = static_cast<int>(round(box.bbox().bottom() * coeff) - CutsOffY),
+
+                    .text = text,
+                    .text1251 = text1251
+                };
+
+                tb.charWidth = (tb.x1 - tb.x) / tb.text1251.size();
+                tb.midX = (tb.x1 - tb.x) / 2;
+                tb.midY = (tb.y1 - tb.y) / 2;
+
+                textBoxes.push_back(tb);
+            }
+
+            // Поиск инициалов и даты
+            {
+                // Дата
+                if (date == -1 && std::regex_search(tb.text1251, match, dateRegex)) {
+
+                    date = i;
+
+                    table.date = tb.text1251;
+                }
+
+                // Инициалы
+                if (std::regex_search(tb.text1251, match, initialsRegex)) {
+
+                    int pos = match.position();
+                    myCoord coord;
+
+                    coord = {
+                        tb.x + tb.charWidth * pos,
+                        tb.y,
+                        tb.text.substr(pos, 6) };
+
+                    t2.push_back(coord);
+                }
+            }
+
+            // Поиск и внесение в клетку
+            {
+                int row = -1, col = -1;
+                int y, x;
+
+                // Текст бокс вне таблицы
+                if (table.cells[0][0].x > tb.x ||
+                    table.cells[0][0].y > tb.y ||
+                    table.cells.back().back().y1 < tb.y)
+                    continue;
+
+                // Поиск строки
+                for (int j = 0; j < table.cells.size() && row == -1; j++) {
+
+                    if (table.cells[j][0].y < tb.y && table.cells[j][0].y1 > tb.y)
+                        row = j;
+                }
+                if (row == -1) {
+                    logMessage("Не найдена строка!", "system");
+                    continue;
+                }
+
+                // Поиск столбца
+                for (int j = 0; j < table.cells[row].size() && col == -1; j++) {
+
+                    if (table.cells[row][j].x - 2 < tb.x && table.cells[row][j].x1 + 2 > tb.x)
+                        col = j;
+                }
+                if (col == -1) {
+                    logMessage("Не найден столбец!", "system");
+                    continue;
+                }
+
+
+
+                for (int j = 0; j < tb.text1251.size(); j++) {
+
+                    if (table.cells[row][col].x1 < tb.charWidth * j + tb.charWidth / 2 + tb.x) {
+                        col++;
+
+                        if (table.cells[row].size() <= col) {
+                            //logMessage("Выход за пределы столбцов!", "system");
+                            col--;
+                        }
+                    }
+
+                    table.cells[row][col].chars[tb.text1251[j]]++;
+                }
+
+            }
+        }
+
+        if (date == -1) {
+            throw(std::runtime_error("Дата не найдена!"));
+        }
+    }
+
+    //// Костыльчик
+    {}
+
+    vector<cv::Point2i> changedDots; // точки посреди изменённых сейчас ячеек
+
+    // Поиск различий в файле
+    {
+
+        // Чтение старой таблицы
+        {
+            Table oldTable;
+
+            std::ifstream input(rb::imgPath + mPage.folderName + "\\data.json");
+
+            if (input.is_open()) {
+
+                json j2;
+                input >> j2;
+                oldTable = j2.get<Table>();
+
+                if (oldTable.date == table.date) {
+                    mPage.IsNewPage = 0;
+
+                    int rowCount = min(oldTable.cells.size(), table.cells.size());
+
+                    for (int i = 0; i < rowCount; i++) {
+                        int colCount = min(oldTable.cells[i].size(), table.cells[i].size());
+
+                        for (int j = 0; j < colCount; j++) {
+
+                            // Сама проверка
+                            if (oldTable.cells[i][j].chars != table.cells[i][j].chars) {
+
+                                table.cells[i][j].changedEarlier = 1;
+                                table.cells[i][j].changedNow = 1;
+                                changedDots.push_back({
+                                    table.cells[i][j].x1 - table.cells[i][j].x / 2,
+                                    table.cells[i][j].y1 - table.cells[i][j].y / 2
+                                    });
+                            }
+                            else if (oldTable.cells[i][j].changedEarlier) {
+                                table.cells[i][j].changedEarlier = 1;
+                            }
+                        }
+                    }
+
+                }
+                else {
+                    mPage.IsNewPage = 1;
                 }
             }
             else
-                isNewFile = 0;
+                mPage.IsNewPage = 1;
+
+            json j = table;
+            std::ofstream(rb::imgPath + mPage.folderName + "\\data.json") << j.dump(4);
         }
-        else
-            isNewFile = 0;
 
-        isNewFile = !isNewFile;
-
-        if (isNewFile)
-            logMessage("Полностью новое", "system");
-        else
-            logMessage("Не большое изменение", "system");
-
-        mPage.IsNewPage = isNewFile;
-
-
-        if (isNewFile) {
-            folderToSave.substr(folderToSave.size() - 2, 2);
-            try {
-                for (const auto& entry : std::filesystem::directory_iterator(folderToSave)) {
-                    if (entry.is_regular_file()) {
-                        std::filesystem::remove(entry.path());
-                    }
-                }
-            }
-            catch (const std::filesystem::filesystem_error& e) {
-                logMessage(e.what(), "system");
-            }
-
-        }
-        else {
-            string currentFilee;
-            for (const auto& entry : fs::directory_iterator(folderToSave)) {
-                currentFilee = cp1251_to_utf8(entry.path().filename().string().c_str());
-                currentFilee = currentFilee.erase(currentFilee.size() - 4);
-
-                if (currentFilee[currentFilee.size() - 1] == 'S') {
-                    lastGroups.insert(currentFilee);
-                }
-            }
-        }
-    }
-
-
-    //подготовка к разделению
-    {
+        // Поиск и отрисовка temporarily
+        /*
         Mat overlay;
-        imageCoper2.copyTo(overlay);
+        image.copyTo(overlay);
+        for (int i = 0; i < table.cells.size(); i++) {
+            for (int j = 0; j < table.cells[i].size(); j++) {
 
+                Cell& cell = table.cells[i][j];
 
-        for (int dwaoijawp = 0; dwaoijawp < text_boxes.size(); dwaoijawp++) {
-            const auto& box = text_boxes[dwaoijawp];
+                if (cell.changedEarlier || cell.changedNow) {
 
-            byte_array byte_arr = text_boxes[dwaoijawp].text().to_utf8();
+                    /*Rect roi1(
+                        xDots[1][cell.indexInX],
+                        yDots[1][cell.indexInY],
 
-            string text(byte_arr.data(), byte_arr.size()), text1251 = Utf8_to_cp1251(text.c_str());
+                        xDots[0][cell.indexInX + 1] - xDots[1][cell.indexInX],
+                        yDots[0][cell.indexInY + 1] - yDots[1][cell.indexInY]
+                    );
 
-            auto dotCord = text.find_last_of(".");//время
-            auto dotDopCord = text.find(".");//время
-            bool timeFinded = 0, corpFinded = 0;
+                    Rect roi1(
+                        cell.x,
+                        cell.y,
 
-            //для номера корпуса
-            if (!corpFinded && text == "КОРПУС") {
-                byte_array byte_arr2 = text_boxes[dwaoijawp - 1].text().to_utf8();
-                string text2(byte_arr2.data(), byte_arr2.size());
+                        cell.x1 - cell.x,
+                        cell.y1 - cell.y
+                    );
 
-                corpsNum = text2;
-                corpFinded = 1;
-            }
+                    cv::Scalar color;
 
-            //для преподавателей
-            if (text.size() > 5 && text1251[0] > -65 && text1251[0] < -32 && dotCord == 5 && dotDopCord == 2) {
+                    if (cell.changedNow) {
 
-                float x1 = box.bbox().x();
-                float y1 = box.bbox().y();
-                float x2 = box.bbox().right();
-                float y2 = box.bbox().bottom();
-                const int padding = 3;//отступы в маленькой версии картинки
+                        color = { 0, 0, 255 };
 
-                x1 = floor(x1 * coeff) - CutsOffX;
-                y1 = floor(y1 * coeff) - CutsOffY;
-                x2 = floor(x2 * coeff) - CutsOffX;
-                y2 = floor(y2 * coeff) - CutsOffY;
+                        changedDots.push_back({
+                            cell.x + (cell.x1 - cell.x) / 2,
+                            cell.y + (cell.y1 - cell.y) / 2
+                            });
 
-                Rect roi2(x1 - padding, y1 - padding, (x2 - x1 + 2 * padding) / text1251.size() * 4, y2 - y1 + 2 * padding);  // x, y, ширина, высота
-                cv::rectangle(overlay, roi2, { 255, 0, 0 }, cv::FILLED);
+                    }
+                    else
+                        color = { 0, 255, 255 };
 
-                text.erase(6);
-                text1251.erase(4);
+                    // Закрашиваем область
+                    {
+                        int thickness = 30;
+                        double angle = 45.0;
+                        double alpha = 0.5; // прозрачность линий
 
-                t2.push_back({ static_cast<float>(box.bbox().x()),
-                    static_cast<float>(box.bbox().y()),
-                    text });
-            }
+                        // создаём слой для линий
+                        cv::Mat hatch = image.clone();
 
-            //для времени
-            if (!timeFinded && dwaoijawp + 2 < text_boxes.size() && dotCord != string::npos && dotDopCord != dotCord && text1251.size() == 10) {
-                const auto& nbox = text_boxes[dwaoijawp + 2];
+                        double rad = angle * CV_PI / 180.0;
+                        double tanA = tan(rad);
+                        for (int x = -image.rows; x < image.cols + image.rows; x += thickness * 3) {
+                            cv::Point p1(x, 0);
+                            cv::Point p2(cvRound(x + image.rows / tanA), image.rows);
+                            cv::line(hatch, p1, p2, color, thickness, cv::LINE_AA);
+                        }
 
+                        // Маска области
+                        cv::Mat mask = cv::Mat::zeros(image.size(), CV_8UC1);
+                        cv::rectangle(mask, roi1, 255, cv::FILLED);
 
-                bool isDate = 1;
-                for (char& ch : text1251) {
-                    if ((ch < 48 || ch > 57) && ch != 46) {
-                        isDate = 0;
-                        timeFinded = 1;
+                        // Берём исходный фон для overlay
+                        image.copyTo(overlay);
+
+                        // Рисуем линии только в нужной области
+                        hatch.copyTo(overlay, mask);
+
+                        // Накладываем overlay с прозрачностью
+                        cv::addWeighted(overlay, alpha, image, 1.0 - alpha, 0, image);
                     }
                 }
 
-                if (isDate) {
-
-                    float x1 = box.bbox().x();
-                    float y1 = box.bbox().y();
-                    float x2 = nbox.bbox().right();
-                    float y2 = nbox.bbox().bottom();
-                    const int padding = 3;//отступы в маленькой версии картинки
-
-                    x1 = floor(x1 * coeff) - CutsOffX;
-                    y1 = floor(y1 * coeff) - CutsOffY;
-                    x2 = floor(x2 * coeff) - CutsOffX;
-                    y2 = floor(y2 * coeff) - CutsOffY;
-
-
-                    Rect roi2(x1 - padding, y1 - padding, x2 - x1 + 2 * padding, y2 - y1 + 2 * padding);  // x, y, ширина, высота
-                    cv::rectangle(overlay, roi2, { 0, 255, 0 }, cv::FILLED);
-
-
-                    timeImage = image(roi2);
-                    timeFinded = 1;
-                }
             }
         }
-
-        cv::addWeighted(overlay, 0.60, imageCoper2, 1 - 0.60, 0, imageCoper2);
-
-        //динамические отступы
-        if (xDots[1][0] - xDots[0][0] < 3 || xDots[1][0] - xDots[0][0] > 40) {
-            padding = 7;
-            padding1 = 7;
-        }
-        else {
-            padding = (xDots[1][0] - xDots[0][0]) * 0.8;
-            padding1 = (xDots[1][0] - xDots[0][0]) * 2;
-        }
-
-        //номер корпуса
-        int fsize = timeImage.rows * frCoeff;
-        corpsNumImage = cv::Mat(timeImage.rows, timeImage.cols, CV_8UC3, cv::Scalar(255, 255, 255));
-        drawTextFT(corpsNumImage, Utf8_to_cp1251((corpsNum + " корпус").c_str()), "times.ttf", fsize, timeImage.cols / 2, timeImage.rows / 2);
+        */
+        //cv::addWeighted(overlay, 0.50, image, 1 - 0.50, 0, image);
+        image.copyTo(imageCoper);
+        image.copyTo(imageCoper2);
     }
 
-    //костыльчик #2
-    {}
+    int padding = 0;//отступы в маленькой версии картинки
+    int padding1 = 0;//отступы между датой в маленькой версии картинки
 
-    //разделение
+
+    // Разделение
     {
+        smatch match;// Переменная для результатов поиска
+
+        regex groupRegex(Utf8_to_cp1251(R"([А-ЯЁ]{2,3}-\d{3}[а-яё]*)"));// Поиск групп
+        regex teacherRegex(Utf8_to_cp1251(R"([А-ЯЁ][а-яё]{2,})"));// Поиск преподавателей
+
+        map <string, Mat>teachers;
+
         Mat overlay2, overlay3;
-        imageCoper2.copyTo(overlay2), imageCoper.copyTo(overlay3);
+        imageCoper2.copyTo(overlay2);
+        imageCoper.copyTo(overlay3);
+
+        Mat timeImage, corpsNumImage;
+
+        // Подготовка к разделению
+        {
+            //динамические отступы
+            if (xDots[1][0] - xDots[0][0] < 3 || xDots[1][0] - xDots[0][0] > 40) {
+                padding = 7;
+                padding1 = 7;
+            }
+            else {
+                padding = (xDots[1][0] - xDots[0][0]) * 0.8;
+                padding1 = (xDots[1][0] - xDots[0][0]) * 2;
+            }
 
 
+            // Вырезка даты
+            Rect dateR(
+                textBoxes[date].x - padding,
+                textBoxes[date].y - padding,
+                textBoxes[date + 2].x1 - textBoxes[date].x + 2 * padding,
+                textBoxes[date + 2].y1 - textBoxes[date].y + 2 * padding
+            );
+            timeImage = image(dateR);
 
-        for (int dwaoijawp = 0; dwaoijawp < text_boxes.size(); dwaoijawp++) {
-            const auto& box = text_boxes[dwaoijawp];
-            byte_array byte_arr = text_boxes[dwaoijawp].text().to_utf8();
-            string text(byte_arr.data(), byte_arr.size()), text1251 = Utf8_to_cp1251(text.c_str());
 
-            //cout << "Текст: '" << text << "'\t с координатами: x1=" << 1 << ", y1=" << 2 << endl;
+            // Отрисовка номера корпуса
+            corpsNumImage = cv::Mat(timeImage.rows, timeImage.cols, CV_8UC3, cv::Scalar(255, 255, 255));
 
-            auto dashCord = text.find("-");//поиск всех групп
-            auto dotCord = text.find_last_of(".");//поиск всех групп
-            auto dotDopCord = text.find(".");//поиск всех групп
+            drawTextFT(
+                corpsNumImage,
+                Utf8_to_cp1251((to_string(sync::CurrentCorp + 1) + " корпус").c_str()),
+                "times.ttf",
+                timeImage.rows * 0.8,
+                timeImage.cols / 2,
+                timeImage.rows / 2
+            );
+        }
 
-            //для групп
-            if ((dashCord != 0 && dashCord + 2 < text.size()) && dashCord != string::npos && (text.at(dashCord - 1) < '0' || text.at(dashCord - 1) > '9') && (text.at(dashCord + 1) >= '0' || text.at(dashCord + 1) <= '9')) {
-                // Печать всего текста для проверки
-                float x1 = box.bbox().x();
-                float y1 = box.bbox().y();
-                float y2 = box.bbox().bottom();
-                int extremDot = 0, startDotXI = 0, startDotYI = 0;
 
-                //cout << "Текст: '" << text << "'\t с координатами: x1=" << x1 << ", y1=" << y1 << endl;
+        for (MyTextBox& tb : textBoxes) {
 
-                //image.at<Vec3b>(, ) = cv::Vec3b(0, 0, 255);
+            // Группы
+            if (regex_search(tb.text1251, match, groupRegex)) {
 
-                x1 = floor(x1 * coeff) - CutsOffX;
-                y1 = floor(y1 * coeff) - CutsOffY;
-                y2 = floor(y2 * coeff) - CutsOffY;
+                int dotE = -1;// итератор крайней точки (точка у группы)
+                int dotX = -1;// итератор x точки
+                int dotY = -1;// итератор y точки
 
-                y1 += (y2 - y1) / 2;
-
-                //выбор подходящей крайней точки (точка у группы)
+                // Выбор подходящей крайней точки (точка у группы)
                 for (int i = 0; i < extremDotsI.size(); i++) {
-                    if (y1 < yDots[0][extremDotsI[i]]) {
-                        extremDot = extremDotsI[i];
+
+                    if (tb.y + tb.midY < yDots[0][extremDotsI[i]]) {
+                        dotE = extremDotsI[i];
                         i = extremDotsI.size();
                     }
                 }
 
-                //выбор подходящей x точки
+                // Выбор подходящей x точки
                 for (int i = 0; i < xDots[0].size(); i++) {
-                    if (x1 <= xDots[0][i]) {
-                        startDotXI = i;
+                    if (tb.x <= xDots[0][i]) {
+                        dotX = i;
                         i = xDots[0].size();
                     }
                 }
 
-                //выбор подходящей y точки
+                // Выбор подходящей y точки
                 for (int i = 0; i < yDots[0].size(); i++) {
-                    if (y1 <= yDots[0][i]) {
-                        startDotYI = i;
+                    if (tb.y + tb.midY <= yDots[0][i]) {
+                        dotY = i;
                         i = yDots[0].size();
                     }
                 }
 
-
-
-                if (extremDot == 0 || startDotXI == 0 || startDotYI == 0) {
-                    logMessage(std::format("ошибка 1 {}, {}, {}, {}", extremDot, startDotXI, startDotYI, text), "system");
+                // Проверка на ошибки
+                if (dotE == -1 || dotX == -1 || dotY == -1) {
+                    logMessage(std::format("ошибка 1 {}, {}, {}, {}", dotE, dotX, dotY, tb.text), "system");
                     continue;
                 }
 
-                //для зеленого выделения
-                Rect roi2(xDots[1][startDotXI - 1] + 1, yDots[1][startDotYI - 1] + 1, xDots[0][startDotXI] - xDots[1][startDotXI - 1] - 1, yDots[0][extremDot] - yDots[1][startDotYI - 1] - 1);  // x, y, ширина, высота
+                // Выделение и обрезка
+                {
+                    // Зелёное выделение
+                    Rect greenSelection(
+                        xDots[1][dotX - 1] + 1,
+                        yDots[1][dotY - 1] + 1,
+                        xDots[0][dotX] - xDots[1][dotX - 1] - 1,
+                        yDots[0][dotE] - yDots[1][dotY - 1] - 1
+                    );
 
-                Rect roi(xDots[1][startDotXI - 1], yDots[0][startDotYI - 1], xDots[1][startDotXI] - xDots[1][startDotXI - 1], yDots[1][extremDot] - yDots[0][startDotYI - 1]);//пары
-                Rect roi1(xDots[0][0], yDots[0][startDotYI - 1], xDots[1][3] - xDots[0][0], yDots[1][extremDot] - yDots[0][startDotYI - 1]);//время
+                    // Звонки
+                    Rect schedule(
+                        xDots[1][dotX - 1],
+                        yDots[0][dotY - 1],
+                        xDots[1][dotX] - xDots[1][dotX - 1],
+                        yDots[1][dotE] - yDots[0][dotY - 1]
+                    );
 
+                    // Пары
+                    Rect lessons(
+                        xDots[0][0],
+                        yDots[0][dotY - 1],
+                        xDots[1][3] - xDots[0][0],
+                        yDots[1][dotE] - yDots[0][dotY - 1]
+                    );
 
-                Mat cropped = image(roi1), cropped1 = image(roi);//группа, звонки
-                Size newSize(max(cropped.cols + cropped1.cols, timeImage.cols) + 2 * padding, cropped.rows + timeImage.rows * 2 + 2 * (padding + padding1));
+                    // Вырезанные группа и звонки
+                    Mat croppedLessons = image(lessons), croppedSchedule = image(schedule);
 
-                Mat result(newSize, image.type(), Scalar(255, 255, 255)); // Для цветного изображения
+                    Size newSize(max(
+                        croppedLessons.cols + croppedSchedule.cols, timeImage.cols) + 2 * padding,
+                        croppedLessons.rows + timeImage.rows * 2 + 2 * (padding + padding1
+                            ));
 
-                cropped.copyTo(result(Rect(padding, timeImage.rows * 2 + padding1 * 2 + padding, cropped.cols, cropped.rows)));
-                cropped1.copyTo(result(Rect(cropped.cols + padding, timeImage.rows * 2 + padding1 * 2 + padding, cropped1.cols, cropped1.rows)));
-                corpsNumImage.copyTo(result(Rect((result.cols - timeImage.cols) / 2 + padding, 0, timeImage.cols, timeImage.rows)));
-                timeImage.copyTo(result(Rect((result.cols - timeImage.cols) / 2 + padding, corpsNumImage.rows, timeImage.cols, timeImage.rows)));
+                    // Мини версия
+                    Mat result(newSize, image.type(), Scalar(255, 255, 255));
 
+                    // Копирование всего на мини версию
+                    croppedLessons.copyTo(result(Rect(
+                        padding,
+                        timeImage.rows * 2 + padding1 * 2 + padding,
+                        croppedLessons.cols,
+                        croppedLessons.rows
+                    )));
 
+                    croppedSchedule.copyTo(result(Rect(
+                        croppedLessons.cols + padding,
+                        timeImage.rows * 2 + padding1 * 2 + padding,
+                        croppedSchedule.cols,
+                        croppedSchedule.rows
+                    )));
 
-                Mat tempImage;//картинка с группой для сохранения
-                image.copyTo(tempImage);
-                Mat overlay;
+                    corpsNumImage.copyTo(result(Rect(
+                        (result.cols - timeImage.cols) / 2 + padding,
+                        0,
+                        timeImage.cols,
+                        timeImage.rows
+                    )));
 
-                tempImage.copyTo(overlay);
-                cv::rectangle(overlay, roi2, { 0, 255, 0 }, cv::FILLED);
-                cv::addWeighted(overlay, 0.25, tempImage, 1 - 0.25, 0, tempImage);
+                    timeImage.copyTo(result(Rect(
+                        (result.cols - timeImage.cols) / 2 + padding,
+                        corpsNumImage.rows,
+                        timeImage.cols,
+                        timeImage.rows
+                    )));
 
+                    // Картинка с выделенной группой
+                    Mat tempImage;
+                    image.copyTo(tempImage);
 
-                cv::rectangle(overlay3, roi2, { 0, 255, 0 }, cv::FILLED);
+                    Mat overlay;
+                    tempImage.copyTo(overlay);
 
+                    cv::rectangle(overlay, greenSelection, { 0, 255, 0 }, cv::FILLED);
+                    cv::addWeighted(overlay, 0.25, tempImage, 1 - 0.25, 0, tempImage);
+                    cv::rectangle(overlay3, greenSelection, { 0, 255, 0 }, cv::FILLED);
 
-                if (!isNewFile) {
+                    if (mPage.IsNewPage == 1) {
+                        for (int i = 0; i < changedDots.size(); i++) {
+                            if (greenSelection.contains(changedDots[i])) {
+                                int groupId = findGroup(tb.text);
+                                if (groupId != -1) {
+                                    mPage.groups[groupId].changed = 1;
+                                }
+                                else {
+                                    logMessage("Неожиданная группа " + tb.text, "system");
+                                }
 
-                    if (lastGroups.find(text + 'S') != lastGroups.end()) {
-                        Mat sImageLast = imread(folderToSave + Utf8_to_cp1251(text.c_str()) + "S.png");
-
-                        // Разделяем оба изображения на каналы
-                        std::vector<cv::Mat> channels1, channels2;
-                        cv::split(result, channels1);
-                        cv::split(sImageLast, channels2);
-
-                        // Сравниваем каждый канал
-                        if (result.size() != sImageLast.size() || cv::countNonZero(channels1[0] != channels2[0]) != 0) {
-                            int groupId = findGroup(text);
-                            if (groupId != -1) {
-                                mPage.groups[groupId].changed = 1;
-                            }
-                            else {
-                                logMessage("Неожиданная группа " + text, "system");
+                                break;
                             }
                         }
                     }
-                    else {
-                        int groupId = findGroup(text);
+
+                    if (!cv::imwrite(folderToSave + tb.text1251 + "S.png", result))
+                        logMessage("Не удалось записать файл " + tb.text, "system");
+
+                    if (cv::imwrite(folderToSave + tb.text1251 + ".png", tempImage)) {
+                        int groupId = findGroup(tb.text);
                         if (groupId != -1) {
-                            mPage.groups[groupId].changed = 1;
+                            mPage.groups[groupId] = 1;
                         }
                         else {
-                            logMessage("Неожиданная группа " + text, "system");
+                            logMessage("Неожиданная группа " + tb.text, "system");
                         }
                     }
+                    else
+                        logMessage("Не удалось записать файл " + tb.text, "system");
                 }
-
-                if (!cv::imwrite(folderToSave + Utf8_to_cp1251(text.c_str()) + "S.png", result))
-                    logMessage("Не удалось записать файл " + text, "system");
-
-                if (cv::imwrite(folderToSave + Utf8_to_cp1251(text.c_str()) + ".png", tempImage)) {
-                    int groupId = findGroup(text);
-                    if (groupId != -1) {
-                        mPage.groups[groupId] = 1;
-                    }
-                    else {
-                        logMessage("Неожиданная группа " + text, "system");
-                    }
-                }
-                else
-                    logMessage("Не удалось записать файл " + text, "system");
             }
 
-            //для преподавателей
-            if (text.size() > 6 && text1251[0] > -65 && text1251[0] < -32 && (text1251[1] < -64 || text1251[1] > -33) && rb::SpamText.find(text) == rb::SpamText.end()) {
-                // Печать всего текста для проверки
-                float x1 = box.bbox().x();
-                float x2 = box.bbox().right();
-                float y1 = box.bbox().y();
-                float y2 = box.bbox().bottom();
-                int extremDot = 0, startDotXI = 0, startDotYI = 0;
-                bool isNormalText = 1;
-                float min_distantion = 500000;
-                int numT2 = 0;
 
-                if (dotCord != string::npos) {
-                    if (text.size() - (dotCord + 1) < 4)
-                        continue;
+            // Преподаватели
+            if (regex_search(tb.text1251, match, teacherRegex)) {
 
-                    int charWidth = (box.bbox().right() - box.bbox().x()) / Utf8_to_cp1251(text.c_str()).size();
-                    x1 += 4 * charWidth;
+                int dotX = -1;// итератор x точки
+                int dotY = -1;// итератор y точки
+                int numT2 = -1; // Итератор инициалов
 
-                    text.erase(0, dotCord + 1);
-                    text1251 = Utf8_to_cp1251(text.c_str());
+                // Проверка на лишний текст
+                if (match.suffix().length() > 0 || match.prefix().length() > 0) {
+
+                    tb.text1251 = tb.text1251.substr(match.prefix().length(), match.length());
+                    tb.text = cp1251_to_utf8(tb.text1251.c_str());
+
+                    tb.x += tb.charWidth * match.prefix().length();
+                    tb.x1 -= tb.charWidth * match.suffix().length();
+                    tb.midX = (tb.x1 - tb.x) / 2;
                 }
 
-                isNormalText = text1251[0] < -32 && text1251[0] > -65;
-                for (int i = 1; i < text1251.size(); i++) {
-                    isNormalText = isNormalText && text1251[i] < 0 && text1251[i] > -33;//-1 я, -64 А
-                }
+                // Поиск инициалов
+                {
+                    float min_distantion = 500000;
 
-                if (!isNormalText) {
-                    continue;
-                }
+                    for (int i = 0; i < t2.size(); i++) {
+                        auto& a = t2[i];
+                        float distanation = a.x - tb.x1;
 
-                for (int i = 0; i < t2.size(); i++) {
-                    auto& a = t2[i];
-                    float distanation = a.x - x2;
-
-                    if (a.y == y1 && min_distantion > distanation && distanation > 0) {
-                        numT2 = i;
-                        min_distantion = distanation;
+                        if (abs(a.y - tb.y) < 4 && min_distantion > distanation && distanation > 0) {
+                            numT2 = i;
+                            min_distantion = distanation;
+                        }
                     }
 
+                    if (numT2 == -1 || min_distantion > tb.charWidth * 2)
+                        continue;
                 }
 
-                if (min_distantion == 500000)
-                    continue;
+                tb.text += t2[numT2].text;
 
-                text += t2[numT2].name;
-
-
-
-                if (teachers.find(text) == teachers.end()) {
-                    image.copyTo(teachers[text]);
+                if (teachers.find(tb.text) == teachers.end()) {
+                    image.copyTo(teachers[tb.text]);
                 }
 
-
-                x1 = floor(x1 * coeff) - CutsOffX;
-                y1 = floor(y1 * coeff) - CutsOffY;
-                x2 = floor(x2 * coeff) - CutsOffX;
-                y2 = floor(y2 * coeff) - CutsOffY;
-
-                //выбор ближайшей x точки
+                // Выбор подходящей x точки
                 for (int i = 0; i < xDots[0].size(); i++) {
-                    if (x1 <= xDots[0][i]) {
-                        startDotXI = i;
+                    if (tb.x <= xDots[0][i]) {
+                        dotX = i;
                         i = xDots[0].size();
                     }
                 }
 
-                //выбор ближайшей y точки
+                // Выбор подходящей y точки
                 for (int i = 0; i < yDots[0].size(); i++) {
-                    if (y1 <= yDots[0][i]) {
-                        startDotYI = i;
+                    if (tb.y + tb.midY <= yDots[0][i]) {
+                        dotY = i;
                         i = yDots[0].size();
                     }
                 }
 
-
-
-                if (startDotXI == 0 || startDotYI == 0) {
-                    logMessage(std::format("ошибка 2: {}, {}, {}", startDotXI, startDotYI, text), "");
+                // Проверка на ошибки
+                if (dotX == -1 || dotY == -1) {
+                    logMessage(std::format("ошибка 1 {}, {}, {}", dotX, dotY, tb.text), "system");
                     continue;
                 }
 
 
-                Rect roi1(xDots[1][0] + 1, yDots[1][startDotYI - 1] + 1, xDots[0][3] - xDots[1][0] - 1, yDots[0][startDotYI] - yDots[1][startDotYI - 1] - 1);
-                Rect roi2(xDots[1][startDotXI - 1] + 1, yDots[1][startDotYI - 1] + 1, xDots[0][startDotXI] - xDots[1][startDotXI - 1] - 1, yDots[0][startDotYI] - yDots[1][startDotYI - 1] - 1);  // x, y, ширина, высота
-                Rect roi3(x1 - padding, y1 - padding, (x2 - x1 + 2 * padding), y2 - y1 + 2 * padding);  // x, y, ширина, высота
+                Rect roi1(
+                    xDots[1][0] + 1,
+                    yDots[1][dotY - 1] + 1,
+                    xDots[0][3] - xDots[1][0] - 1,
+                    yDots[0][dotY] - yDots[1][dotY - 1] - 1
+                );
+
+                Rect roi2(
+                    xDots[1][dotX - 1] + 1,
+                    yDots[1][dotY - 1] + 1,
+                    xDots[0][dotX] - xDots[1][dotX - 1] - 1,
+                    yDots[0][dotY] - yDots[1][dotY - 1] - 1
+                );
+
+                Rect roi3(
+                    tb.x - padding,
+                    tb.y - padding,
+                    tb.x1 - tb.x + 2 * padding,
+                    tb.y1 - tb.y + 2 * padding
+                );  // x, y, ширина, высота
 
                 Mat overlay;
-                teachers[text].copyTo(overlay);
+                teachers[tb.text].copyTo(overlay);
 
                 cv::rectangle(overlay, roi2, { 0, 255, 0 }, cv::FILLED);
                 cv::rectangle(overlay, roi1, { 0, 255, 0 }, cv::FILLED);
-                cv::addWeighted(overlay, 0.25, teachers[text], 1 - 0.25, 0, teachers[text]);
+                cv::addWeighted(overlay, 0.25, teachers[tb.text], 1 - 0.25, 0, teachers[tb.text]);
                 //teachers[text].at<Vec3b>(y1, x1) = cv::Vec3b(0, 0, 254); // Установка цвета пикселя
 
                 cv::rectangle(overlay2, roi3, { 0, 255, 0 }, cv::FILLED);
+            }
+        }
+
+        // Сохранение картинок с преподавателями
+        for (auto& teacher : teachers) {
+            if (cv::imwrite(folderToSave + Utf8_to_cp1251(teacher.first.c_str()) + ".png", teacher.second))
+                mPage.Teachers.insert(teacher.first);
+            else {
+                logMessage("Не удалось записать файл " + teacher.first, "system");
+            }
+
+            if (rb::AllTeachers.find(teacher.first) == rb::AllTeachers.end())
+                rb::AllTeachers.insert(teacher.first);
+        }
+
+        // Запись преподавателей в файл
+        std::ofstream outputFile(rb::imgPath + "4\\t.txt");
+        for (const string& tea : rb::AllTeachers) {
+            outputFile << tea << '\n';
+        }
+        outputFile.close();  // Закрываем файл
+
+        //добавление рекламы
+        if (cfg::EnableAd) {
+            Mat adImg = imread("..\\imgs\\ad.png");//   ..\\imgs\\ad.png
+            if (adImg.data) {
+                Mat overlay;
+                int y = yDots[0][0] + (yDots[1][1] - yDots[0][0]) / 2 > adImg.rows + 10 ? yDots[0][0] + (yDots[1][1] - yDots[0][0]) / 2 - adImg.rows : 5;
+
+                image.copyTo(overlay);
+                adImg.copyTo(overlay(Rect(xDots[0][xDots[0].size() - 1] - adImg.cols, y, adImg.cols, adImg.rows)));
+                cv::addWeighted(overlay, 0.75, image, 1 - 0.75, 0, image);
+
+                cv::imwrite(imageName, image);
             }
         }
 
@@ -1085,44 +1346,9 @@ static void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
         cv::addWeighted(overlay2, 0.50, imageCoper2, 1 - 0.50, 0, imageCoper2);
     }
 
-    //сохранение картинок с преподавателями
-    for (auto& teacher : teachers) {
-        if (cv::imwrite(folderToSave + Utf8_to_cp1251(teacher.first.c_str()) + ".png", teacher.second))
-            mPage.Teachers.insert(teacher.first);
-        else {
-            logMessage("Не удалось записать файл " + teacher.first, "system");
-        }
-
-        if (rb::AllTeachers.find(teacher.first) == rb::AllTeachers.end())
-            rb::AllTeachers.insert(teacher.first);
-    }
-
-    //запись учителей
-    std::ofstream outputFile(rb::imgPath + "4\\t.txt");
-    for (const string& tea : rb::AllTeachers) {
-        outputFile << tea << '\n';
-    }
-    outputFile.close();  // Закрываем файл
-
-    //добавление рекламы
-    if (cfg::EnableAd) {
-        Mat adImg = imread("..\\imgs\\ad.png");//   ..\\imgs\\ad.png
-        if (adImg.data) {
-            Mat overlay;
-            int y = yDots[0][0] + (yDots[1][1] - yDots[0][0]) / 2 > adImg.rows + 10 ? yDots[0][0] + (yDots[1][1] - yDots[0][0]) / 2 - adImg.rows : 5;
-
-            image.copyTo(overlay);
-            adImg.copyTo(overlay(Rect(xDots[0][xDots[0].size() - 1] - adImg.cols, y, adImg.cols, adImg.rows)));
-            cv::addWeighted(overlay, 0.75, image, 1 - 0.75, 0, image);
-
-            cv::imwrite(imageName, image);
-        }
-    }
-
-
-    delete page;
 
     //сохранение мусора ;)
+    cv::imwrite(imageName, image);
     cv::imwrite(folderToSave + "coper.png", imageCoper);
     cv::imwrite(folderToSave + "coper2.png", imageCoper2);
 }
