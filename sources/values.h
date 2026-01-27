@@ -3,8 +3,8 @@ using namespace std;
 using namespace TgBot;
 namespace fs = std::filesystem;
 
-inline const std::string CurrentVersion = "v4.1";
-inline const std::string Version = CurrentVersion + " (16.01.2026) есть куда рости";
+inline const std::string CurrentVersion = "v4.0.2";
+inline const std::string Version = CurrentVersion + " (27.01.2026) контора солнышек";
 struct corps;
 
 
@@ -64,7 +64,6 @@ namespace cfg {
 
     inline bool EnableAd = 1;
     inline bool EnableAutoUpdate = 1;
-    inline bool EnableDirt = 0;// Самое большое разочарование, уж да уж
 }
 
 namespace rb {

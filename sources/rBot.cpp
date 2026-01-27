@@ -97,8 +97,7 @@ vector <string> ErrorsForBan = {
     "CHANNEL_PRIVATE",
     "PEER_ID_INVALID",
     "CHAT_ID_INVALID",
-    "USER_IS_BOT",
-    "User is deactivated"
+    "USER_IS_BOT"
 
     "bot was kicked",
     "user is deactivated",
@@ -106,7 +105,8 @@ vector <string> ErrorsForBan = {
     "chat not found",
     "user not found",
     "Bot is not a member of the channel chat",
-    "Group migrated to supergroup"
+    "Group migrated to supergroup",
+    "User is deactivated"
 };
 
 
