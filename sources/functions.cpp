@@ -143,8 +143,11 @@ int findGroup(string groupName) {
 }
 
 void genGroups() {
-    const vector<string> gName = { "ДО", "ИИС", "ИКС", "ИСП", "МТО", "ОИБ", "ОПС", "СИС", "ТО", "ЭСС" };
-    const vector<string> suf = { "а", "ир", "ис", "п", "р", "т" };
+    const vector<string> gName = { "ДО", "ИИС", "ИКС", "ИСП", "МТО", "ОИБ", "ОПС", "СИС", "ТО", "ЭСС", "ИРП", "НАП", "РУПО", "ТЭС"};
+    const vector<vector<string>> suf = {
+        { "а", "ир", "ис", "п", "р", "т" },
+        { "б", "ис", "ит", "р" }
+    };
     int offset = 0;
 
     //получение года
@@ -161,16 +164,41 @@ void genGroups() {
         offset = (sync::CurrentYear - 24) % 4;
     }
 
+    enum types
+    {
+        regular,
+        isp,
+        rypo
+    };
 
     for (auto& name : gName) {
-        bool isNormal = name != "ИСП";
+        // Определение типа группы
+        int type = types::regular;
+        if (name == "ИСП") {
+            type = types::isp;
+        }
+        else if (name == "РУПО") {
+            type = types::rypo;
+        }
 
-        int i = isNormal ? 5 : 0;
-
-        for (; i < 6; i++) {
+        // Само добавление групп
+        if (type == types::regular) {// Обчные
             for (int j = 0; j < 4; j++) {
-
-                rb::Groups.push_back(std::format("{}-{}{}{}", name, (j + offset) % 4 + 1, sync::CurrentYear - (j + offset) % 4, isNormal ? "" : suf[i]));
+                rb::Groups.push_back(std::format("{}-{}{}", name, (j + offset) % 4 + 1, sync::CurrentYear - (j + offset) % 4));
+            }
+        }
+        else if (type == types::isp) {// ИСП
+            for (int i = 0; i < suf[0].size(); i++) {
+                for (int j = 0; j < 4; j++) {
+                    rb::Groups.push_back(std::format("{}-{}{}{}", name, (j + offset) % 4 + 1, sync::CurrentYear - (j + offset) % 4, suf[0][i]));
+                }
+            }
+        }
+        else if (type == types::rypo) {// РУПО
+            for (int i = 0; i < suf[1].size(); i++) {
+                for (int j = 0; j < 4; j++) {
+                    rb::Groups.push_back(std::format("{}-{}{}{}", name, (j + offset) % 4 + 1, sync::CurrentYear - (j + offset) % 4, suf[1][i]));
+                }
             }
         }
     }
