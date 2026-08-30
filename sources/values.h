@@ -3,8 +3,8 @@ using namespace std;
 using namespace TgBot;
 namespace fs = std::filesystem;
 
-inline const std::string CurrentVersion = "v4.0.2";
-inline const std::string Version = CurrentVersion + " (27.01.2026) контора солнышек";
+inline const std::string CurrentVersion = "v4.0.3";
+inline const std::string Version = CurrentVersion + " (31.08.2026) хайп РУПО";
 struct corps;
 
 

@@ -1106,17 +1106,17 @@ static void getLocalRaspis(pageRasp& mPage, string pdf_path, int pageNum) {
 
     //добавление рекламы
     if (cfg::EnableAd) {
-        Mat adImg = imread("..\\imgs\\ad.png");//   ..\\imgs\\ad.png
-        if (adImg.data) {
-            Mat overlay;
-            int y = yDots[0][0] + (yDots[1][1] - yDots[0][0]) / 2 > adImg.rows + 10 ? yDots[0][0] + (yDots[1][1] - yDots[0][0]) / 2 - adImg.rows : 5;
+        //Mat adImg = imread("..\\imgs\\ad.png");//   ..\\imgs\\ad.png
+        //if (adImg.data) {
+        //    Mat overlay;
+        //    int y = yDots[0][0] + (yDots[1][1] - yDots[0][0]) / 2 > adImg.rows + 10 ? yDots[0][0] + (yDots[1][1] - yDots[0][0]) / 2 - adImg.rows : 5;
 
-            image.copyTo(overlay);
-            adImg.copyTo(overlay(Rect(xDots[0][xDots[0].size() - 1] - adImg.cols, y, adImg.cols, adImg.rows)));
-            cv::addWeighted(overlay, 0.75, image, 1 - 0.75, 0, image);
+        //    image.copyTo(overlay);
+        //    adImg.copyTo(overlay(Rect(xDots[0][xDots[0].size() - 1] - adImg.cols, y, adImg.cols, adImg.rows)));
+        //    cv::addWeighted(overlay, 0.75, image, 1 - 0.75, 0, image);
 
-            cv::imwrite(imageName, image);
-        }
+        //    cv::imwrite(imageName, image);
+        //}
     }
 
 
