@@ -106,7 +106,8 @@ vector <string> ErrorsForBan = {
     "user not found",
     "Bot is not a member of the channel chat",
     "Group migrated to supergroup",
-    "User is deactivated"
+    "User is deactivated",
+    "bot was kicked from the group chat"
 };
 
 
