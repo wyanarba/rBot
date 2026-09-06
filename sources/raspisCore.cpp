@@ -1240,6 +1240,7 @@ void main2() {
                             }
                         }
 
+                        system("cd GO & compressor.exe");
 
                         // Всё было успешно
                         corp.LastFileD = FileDownloaded;
